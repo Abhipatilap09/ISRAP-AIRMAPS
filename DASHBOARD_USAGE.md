@@ -247,6 +247,21 @@ What you will see:
 - correlation heatmap
 - data-quality views for both variables
 
+## Station–Meteorology Relationship and Dependency
+
+The dashboard explicitly supports analysis of relationships between station pollutant measurements and meteorological context (ERA5). In combined mode, the app overlays the pollutant and meteorology series on a shared time axis (dual y-axis), enabling visual dependency detection such as:
+
+- pollutant peaks coinciding with temperature inversions or high humidity
+- pollutant reductions during strong wind speed periods
+- seasonal/diurnal shift coupling between meteorology and air quality
+
+Additional quantitative relationship tools:
+
+- scatter plot with regression line (pollutant vs selected meteorology variable)
+- correlation heatmap across selected and nearby available variables
+
+This supports hypothesis-driven analysis of physical dependency rather than one-way causality assumptions.
+
 ## KPI Cards
 
 The top KPI cards summarize the active session:
