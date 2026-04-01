@@ -962,6 +962,10 @@ def apply_temporal_axis(fig: go.Figure, aggregation: str) -> go.Figure:
     return fig
 
 
+def prefers_webgl(point_count: int) -> bool:
+    return point_count >= 1500
+
+
 def create_diurnal_figure(data: pd.DataFrame, value_column: str) -> go.Figure | None:
     profile = diurnal_profile(data, value_column)
     if profile.empty:
@@ -1350,18 +1354,22 @@ def create_timeseries_figure(data: pd.DataFrame, value_column: str, aggregation:
 
     fig = go.Figure()
     station_order = list(frame["station_label"].drop_duplicates())
+    use_webgl = prefers_webgl(len(frame))
+    trace_cls = go.Scattergl if use_webgl else go.Scatter
 
     for idx, station in enumerate(station_order):
         station_frame = frame[frame["station_label"] == station]
         color = APP_CONFIG["colorway"][idx % len(APP_CONFIG["colorway"])]
+        show_markers = len(station_frame) <= 500
+        base_mode = "lines+markers" if show_markers else "lines"
 
         fig.add_trace(
-            go.Scatter(
+            trace_cls(
                 x=station_frame["period"],
                 y=station_frame[value_column],
-                mode="lines+markers",
+                mode=base_mode,
                 line={"color": color, "width": 2.5},
-                marker={"size": 6},
+                marker={"size": 6} if show_markers else None,
                 name=compact_station_label(station),
                 legendgroup=station,
                 opacity=0.30 if rolling_window > 1 else 0.95,
@@ -1370,7 +1378,7 @@ def create_timeseries_figure(data: pd.DataFrame, value_column: str, aggregation:
 
         if rolling_window > 1:
             fig.add_trace(
-                go.Scatter(
+                trace_cls(
                     x=station_frame["period"],
                     y=station_frame["rolling"],
                     mode="lines",
@@ -1383,9 +1391,9 @@ def create_timeseries_figure(data: pd.DataFrame, value_column: str, aggregation:
 
         threshold = station_frame[value_column].quantile(0.90)
         outliers = station_frame[station_frame[value_column] >= threshold]
-        if not outliers.empty:
+        if not outliers.empty and len(station_frame) <= 2500:
             fig.add_trace(
-                go.Scatter(
+                trace_cls(
                     x=outliers["period"],
                     y=outliers[value_column],
                     mode="markers",
@@ -1439,12 +1447,15 @@ def create_overlay_figure(
         .transform(lambda s: s.rolling(rolling_window, min_periods=1).mean())
     )
 
+    use_webgl = prefers_webgl(max(len(pollutant_frame), len(meteorology_frame)))
+    trace_cls = go.Scattergl if use_webgl else go.Scatter
+
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     for idx, station in enumerate(pollutant_frame["station_label"].drop_duplicates()):
         station_frame = pollutant_frame[pollutant_frame["station_label"] == station]
         color = APP_CONFIG["colorway"][idx % len(APP_CONFIG["colorway"])]
         fig.add_trace(
-            go.Scatter(
+            trace_cls(
                 x=station_frame["period"],
                 y=station_frame["rolling"] if rolling_window > 1 else station_frame[pollutant_column],
                 mode="lines",
@@ -1459,7 +1470,7 @@ def create_overlay_figure(
     met_station = meteorology_frame["station_label"].iloc[0]
     met_frame = meteorology_frame[meteorology_frame["station_label"] == met_station]
     fig.add_trace(
-        go.Scatter(
+        trace_cls(
             x=met_frame["period"],
             y=met_frame["rolling"] if rolling_window > 1 else met_frame[meteorology_column],
             mode="lines",
@@ -2200,6 +2211,9 @@ def render_dashboard(
             '<p class="tab-note">Aggregation, rolling averages, peaks, and >90th percentile markers are controlled from the sidebar.</p>',
             unsafe_allow_html=True,
         )
+
+        if mode == "empty":
+            st.info("Select a pollutant, a meteorology variable, or both to populate the time series views.")
 
         if mode in {"pollutant", "combined"} and selected_pollutant:
             render_chart(

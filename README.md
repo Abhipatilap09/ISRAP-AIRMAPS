@@ -1,62 +1,68 @@
 # Atmospheric Intelligence Hub
 
-A production-style Streamlit dashboard for exploring EPA AQS station pollutant data alongside ERA5 meteorology. The app is designed as a research-grade analytics workspace with a polished SaaS-style interface, Plotly-based interactivity, and a beginner-friendly control panel.
+A production-style Streamlit dashboard for exploring EPA AQS station pollutant data alongside ERA5 meteorology. The current primary app entrypoint is [app3.py](/c:/Users/abhip/Abhishek_Masters/NEW_RESEARCH_NASA(ISRAP)/app3.py).
 
-## Features
+## What This Repository Contains
 
-- Station search plus multi-station comparison
-- Pollutant-only, meteorology-only, and combined analysis modes
-- KPI cards for selected stations, active variables, and peak events
-- Overview, Time Series, Distribution, Relationships, and Data Quality tabs
-- Rolling averages, peak markers, extreme-day summaries, and downloadable filtered CSVs
-- Completeness matrices plus descriptive statistics for selected variables
-- Cached data loading for fast repeat interactions in Streamlit
-
-## Included Data Assumptions
-
-The app is preconfigured for the files already in this repository:
-
-- `Station_wise_dataset_for_EPA_AQS/*.csv`
-- `ERA5_hourly_formatted_00_23.csv`
-
-Expected columns include:
-
-- Common: `datetime`, `site`, `state_code`, `county_code`
-- Pollutants: `PM2.5`, `NO2`, `O3`, `SO2`, `CO`
-- Meteorology: `temp_c`, `relative_humidity`, `wind_speed`, `dewpoint_c`, `surface_pressure_hpa`, `precip_mm`, `u10`, `v10`, `t2m`, `sp`, `blh`
-
-You can adjust file paths and column priorities in the `APP_CONFIG` section near the top of [app.py](/c:/Users/abhip/Abhishek_Masters/NEW_RESEARCH_NASA(ISRAP)/app.py).
+- [app3.py](/c:/Users/abhip/Abhishek_Masters/NEW_RESEARCH_NASA(ISRAP)/app3.py): current dashboard app with the latest date-window logic, Plotly analytics, and UI refinements
+- [app.py](/c:/Users/abhip/Abhishek_Masters/NEW_RESEARCH_NASA(ISRAP)/app.py): earlier dashboard version
+- [app2.py](/c:/Users/abhip/Abhishek_Masters/NEW_RESEARCH_NASA(ISRAP)/app2.py): intermediate dashboard version
+- [requirements.txt](/c:/Users/abhip/Abhishek_Masters/NEW_RESEARCH_NASA(ISRAP)/requirements.txt): Python dependencies
+- [DASHBOARD_USAGE.md](/c:/Users/abhip/Abhishek_Masters/NEW_RESEARCH_NASA(ISRAP)/DASHBOARD_USAGE.md): full user documentation for operating the dashboard
 
 ## Quick Start
 
-1. Create and activate a Python virtual environment.
-2. Install dependencies:
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Launch the dashboard:
+Run the current dashboard locally:
 
 ```bash
-streamlit run app.py
+streamlit run app3.py
 ```
 
-## Streamlit Community Cloud Deployment
+On Windows with the local virtual environment:
 
-1. Push this repository to GitHub.
-2. In Streamlit Community Cloud, create a new app pointing to `app.py`.
-3. Keep `requirements.txt` at the repository root.
-4. Ensure the station CSV folder and ERA5 CSV remain in the repository so the relative paths resolve correctly.
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run app3.py
+```
 
-## App Structure
+## Data Files Expected By The App
 
-- [app.py](/c:/Users/abhip/Abhishek_Masters/NEW_RESEARCH_NASA(ISRAP)/app.py): dashboard UI, cached loaders, analytics helpers, and plotting functions
-- [requirements.txt](/c:/Users/abhip/Abhishek_Masters/NEW_RESEARCH_NASA(ISRAP)/requirements.txt): deployment dependencies
-- [README.md](/c:/Users/abhip/Abhishek_Masters/NEW_RESEARCH_NASA(ISRAP)/README.md): setup and deployment notes
+The current configuration expects:
 
-## Notes
+- `Station_wise_dataset_for_EPA_AQS/*.csv`
+- `ERA5_hourly_formatted_00_23.csv`
 
-- Meteorology is treated as a regional ERA5 layer and is replicated across selected stations for meteorology-only comparisons.
-- Relationship plots are enabled only when both a pollutant and a meteorology variable are selected.
-- The default dashboard state is intentionally pre-populated so the app does not launch to a blank screen.
+Typical columns include:
+
+- Common: `datetime`, `site`, `state_code`, `county_code`
+- Pollutants: `PM2.5`, `NO2`, `O3`, `SO2`, `CO`
+- Meteorology: `temp_c`, `relative_humidity`, `wind_speed`, `dewpoint_c`, `surface_pressure_hpa`, `precip_mm`, `u10`, `v10`, `t2m`, `sp`, `blh`, `d2m`
+
+Paths, labels, and variable priorities can be adjusted in the `APP_CONFIG` section near the top of [app3.py](/c:/Users/abhip/Abhishek_Masters/NEW_RESEARCH_NASA(ISRAP)/app3.py).
+
+## Deployment
+
+For Streamlit Community Cloud:
+
+1. Push the repository to GitHub.
+2. Create a new Streamlit app.
+3. Select repository `Abhipatilap09/ISRAP-AIRMAPS`.
+4. Set branch to `main`.
+5. Set the main file path to `app3.py`.
+
+## Full Dashboard Guide
+
+See [DASHBOARD_USAGE.md](/c:/Users/abhip/Abhishek_Masters/NEW_RESEARCH_NASA(ISRAP)/DASHBOARD_USAGE.md) for:
+
+- complete control-panel usage
+- pollutant-only, meteorology-only, and combined mode behavior
+- explanation of each analytics tab
+- date-range logic
+- chart interpretation notes
+- export workflow
+- troubleshooting
