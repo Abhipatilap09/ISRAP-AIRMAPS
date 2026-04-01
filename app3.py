@@ -88,14 +88,14 @@ APP_CONFIG = {
         "d2m": "K",
     },
     "colorway": [
-        "#1d4ed8",
-        "#0f766e",
-        "#c2410c",
-        "#7c3aed",
-        "#0891b2",
-        "#be123c",
-        "#65a30d",
-        "#334155",
+        "#0072B2",  # blue
+        "#D55E00",  # orange
+        "#009E73",  # green
+        "#CC79A7",  # pink/magenta
+        "#F0E442",  # yellow
+        "#56B4E9",  # light blue
+        "#E69F00",  # amber
+        "#999999",  # grey
     ],
     "default_pollutant_priority": ["PM2.5", "NO2", "O3", "SO2", "CO"],
     "default_meteorology_priority": [

@@ -24,6 +24,28 @@ Run the current dashboard locally:
 streamlit run app3.py
 ```
 
+## Running and Using the Dashboard (Detailed)
+
+1. Ensure the data files exist:
+   - `Station_wise_dataset_for_EPA_AQS/*.csv`
+   - `ERA5_hourly_formatted_00_23.csv`
+2. Launch Streamlit:
+   - `streamlit run app3.py`
+3. Open `http://localhost:8501` in your browser.
+4. Use sidebar controls:
+   - Station search + multi-select
+   - Pollutant and Meteorology variable selectors
+   - Aggregation tier (Hourly/Daily/Monthly/Yearly)
+   - Rolling window (1–14)
+   - From/To date range
+   - Reset Filters / Download CSV
+5. Inspect main panels:
+   - KPI summary cards on top
+   - Overview / Time Series / Distribution / Relationships / Data Quality plots
+   - Interactive tooltips, zoom, legend toggle
+6. If you want long-term documentation, read `DASHBOARD_USAGE.md` (full usage and mode details).
+
+
 On Windows with the local virtual environment:
 
 ```powershell
