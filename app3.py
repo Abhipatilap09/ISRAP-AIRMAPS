@@ -937,28 +937,78 @@ def datetime_axis(
     fig: go.Figure,
     tickformat: str = "%d %H:%M",
     hoverformat: str = "%Y-%m-%d %H:%M",
+    dtick: str | int | None = None,
+    tickangle: int = -45,
     row: int | None = None,
     col: int | None = None,
 ) -> go.Figure:
     kwargs = {}
     if row is not None and col is not None:
         kwargs = {"row": row, "col": col}
-    fig.update_xaxes(tickformat=tickformat, hoverformat=hoverformat, **kwargs)
+    axis_kwargs = {
+        "tickformat": tickformat,
+        "hoverformat": hoverformat,
+        "tickangle": tickangle,
+        "automargin": True,
+    }
+    if dtick is not None:
+        axis_kwargs["dtick"] = dtick
+    fig.update_xaxes(**axis_kwargs, **kwargs)
     return fig
 
 
-def apply_temporal_axis(fig: go.Figure, aggregation: str) -> go.Figure:
+def axis_config_by_window(start_ts: pd.Timestamp, end_ts: pd.Timestamp) -> dict[str, object]:
+    span = end_ts - start_ts
+    if span <= pd.Timedelta(days=1):
+        return {
+            "tickformat": "%H:%M",
+            "hoverformat": "%Y-%m-%d %H:%M",
+            "dtick": 3600 * 1000,
+            "tickangle": -45,
+        }
+    if span <= pd.Timedelta(days=3):
+        return {
+            "tickformat": "%d %b %H:%M",
+            "hoverformat": "%Y-%m-%d %H:%M",
+            "dtick": 3 * 3600 * 1000,
+            "tickangle": -45,
+        }
+    if span <= pd.Timedelta(days=31):
+        return {
+            "tickformat": "%d %b",
+            "hoverformat": "%Y-%m-%d",
+            "dtick": "D1",
+            "tickangle": -45,
+        }
+    if span <= pd.Timedelta(days=366):
+        return {
+            "tickformat": "%d %b %Y",
+            "hoverformat": "%Y-%m",
+            "dtick": "M1",
+            "tickangle": -45,
+        }
+    return {
+        "tickformat": "%b %Y",
+        "hoverformat": "%Y",
+        "dtick": "M3",
+        "tickangle": -45,
+    }
+
+
+def apply_temporal_axis(fig: go.Figure, aggregation: str, start_ts: pd.Timestamp | None = None, end_ts: pd.Timestamp | None = None) -> go.Figure:
     aggregation_key = aggregation.lower()
+    if start_ts is not None and end_ts is not None:
+        config = axis_config_by_window(start_ts, end_ts)
+        return datetime_axis(fig, **config)
+
     if aggregation_key == "hourly":
-        return datetime_axis(fig, tickformat="%d %H:%M", hoverformat="%Y-%m-%d %H:%M")
+        return datetime_axis(fig, tickformat="%d %b %H:%M", hoverformat="%Y-%m-%d %H:%M", dtick=3600 * 1000)
     if aggregation_key == "daily":
-        return datetime_axis(fig, tickformat="%d %b", hoverformat="%Y-%m-%d")
+        return datetime_axis(fig, tickformat="%d %b", hoverformat="%Y-%m-%d", dtick="D1")
     if aggregation_key == "monthly":
-        fig.update_xaxes(dtick="M1", tickformat="%b %Y", hoverformat="%Y-%m")
-        return fig
+        return datetime_axis(fig, tickformat="%b %Y", hoverformat="%Y-%m", dtick="M1")
     if aggregation_key == "yearly":
-        fig.update_xaxes(dtick="M12", tickformat="%Y", hoverformat="%Y")
-        return fig
+        return datetime_axis(fig, tickformat="%Y", hoverformat="%Y", dtick="M12")
     return fig
 
 
@@ -992,7 +1042,10 @@ def create_diurnal_figure(data: pd.DataFrame, value_column: str) -> go.Figure | 
         height=430,
         subtitle=format_window_from_data(data, "Mean by hour of day"),
     )
+    fig.update_layout(legend_title_text="", showlegend=True)
     fig = hourly_axis(fig)
+    fig.update_xaxes(title_text="Hour of day (00:00–23:00)")
+    fig.update_traces(hovertemplate="%{x:02.0f}:00<br>%{y:.2f}<extra>%{fullData.name}</extra>")
 
     base_station = profile["station_label"].iloc[0]
     station_profile = profile[profile["station_label"] == base_station]
@@ -1200,8 +1253,8 @@ def create_monthly_hourly_figure(
         height=430,
         subtitle=format_time_window(month_start, month_end, "Hourly resolution"),
     )
-    fig = datetime_axis(fig, tickformat="%m-%d", hoverformat="%Y-%m-%d %H:%M")
-    fig.update_xaxes(dtick=2 * 24 * 60 * 60 * 1000)
+    fig = datetime_axis(fig, tickformat="%d %b", hoverformat="%Y-%m-%d %H:%M", dtick="D2", tickangle=-45)
+    fig.update_traces(hovertemplate="%{x|%Y-%m-%d %H:%M}<br>%{y:.2f}<extra>%{fullData.name}</extra>")
 
     base_station = frame["station_label"].iloc[0]
     station_frame = frame[frame["station_label"] == base_station]
@@ -1245,8 +1298,8 @@ def create_monthly_daily_average_figure(
         height=430,
         subtitle=format_time_window(month_start, month_end, "Daily average"),
     )
-    fig = datetime_axis(fig, tickformat="%m-%d", hoverformat="%Y-%m-%d")
-    fig.update_xaxes(dtick=2 * 24 * 60 * 60 * 1000)
+    fig = datetime_axis(fig, tickformat="%d %b", hoverformat="%Y-%m-%d", dtick="D1", tickangle=-45)
+    fig.update_traces(hovertemplate="%{x|%Y-%m-%d}<br>%{y:.2f}<extra>%{fullData.name}</extra>")
 
     base_station = daily["station_label"].iloc[0]
     station_daily = daily[daily["station_label"] == base_station]
@@ -1290,7 +1343,8 @@ def create_yearly_month_average_figure(
         height=430,
         subtitle=format_time_window(year_start, year_end, "Monthly average"),
     )
-    fig.update_xaxes(dtick="M1", tickformat="%b", hoverformat="%Y-%m")
+    fig.update_xaxes(dtick="M1", tickformat="%b %Y", hoverformat="%Y-%m", tickangle=-45)
+    fig.update_traces(hovertemplate="%{x|%Y-%m}<br>%{y:.2f}<extra>%{fullData.name}</extra>")
 
     base_station = monthly["station_label"].iloc[0]
     station_monthly = monthly[monthly["station_label"] == base_station]
@@ -1338,7 +1392,9 @@ def create_recent_figure(data: pd.DataFrame, value_column: str, start_ts: pd.Tim
         height=420,
         subtitle=format_time_window(start_ts, end_ts, "Continuous timestamps"),
     )
-    fig = datetime_axis(fig)
+    fig = apply_temporal_axis(fig, "Hourly", start_ts, end_ts)
+    fig.update_traces(hovertemplate="%{x|%Y-%m-%d %H:%M}<br>%{y:.2f}<extra>%{fullData.name}</extra>")
+    fig.update_layout(legend_title_text="")
     return fig
 
 
@@ -1412,7 +1468,11 @@ def create_timeseries_figure(data: pd.DataFrame, value_column: str, aggregation:
         height=470,
         subtitle=format_window_from_data(data, f"{aggregation} aggregation"),
     )
-    fig = apply_temporal_axis(fig, aggregation)
+
+    period_start = frame["period"].min()
+    period_end = frame["period"].max()
+    fig = apply_temporal_axis(fig, aggregation, period_start, period_end)
+    fig.update_traces(hovertemplate="%{x|%Y-%m-%d %H:%M}<br>%{y:.2f}<extra>%{fullData.name}</extra>")
 
     base_station = station_order[0]
     station_data = frame[frame["station_label"] == base_station]
@@ -1490,7 +1550,12 @@ def create_overlay_figure(
     )
     fig.update_yaxes(title_text=axis_label(pollutant_column), secondary_y=False)
     fig.update_yaxes(title_text=axis_label(meteorology_column), secondary_y=True)
-    fig = apply_temporal_axis(fig, aggregation)
+
+    period_start = pollutant_frame["period"].min()
+    period_end = pollutant_frame["period"].max()
+    fig = apply_temporal_axis(fig, aggregation, period_start, period_end)
+    fig.update_traces(hovertemplate="%{x|%Y-%m-%d %H:%M}<br>%{y:.2f}<extra>%{fullData.name}</extra>")
+    fig.update_layout(legend_title_text="")
     return fig
 
 
