@@ -693,7 +693,7 @@ def resample_to_expected_index(
         return pd.DataFrame(columns=[time_column, "station_label", value_column])
 
     pieces = []
-    for _, station_frame in frame.groupby("station_label", observed=True):
+    for station, station_frame in frame.groupby("station_label", observed=True):
         station_series = (
             station_frame.set_index("datetime")[value_column]
             .sort_index()
@@ -1914,7 +1914,7 @@ def sidebar_controls(
             key="rolling_window",
         )
 
-        st.caption("1 day → hourly 00:00–23:00 | 3 days → 3 hourly panels | 15 days → daily avg | full month → monthly trend | full year → yearly monthly avg")
+        st.caption("1 day → hourly 00:00–23:00 | 3 days → 3 panels | 15 days → daily avg | full month → monthly trend | full year → yearly monthly avg")
 
         start_ts, end_ts = sidebar_date_controls(min_ts, max_ts)
 
@@ -2032,128 +2032,377 @@ def render_quality_block(
     return summary
 
 
-def quantile_window_analysis(data: pd.DataFrame, value_column: str) -> pd.DataFrame:
-    frame = select_value_frame(data, value_column)
-    if frame.empty:
-        return pd.DataFrame()
-    q1 = frame[value_column].quantile(0.25)
-    median = frame[value_column].quantile(0.50)
-    q3 = frame[value_column].quantile(0.75)
-    total_count = len(frame)
-    below_q1 = (frame[value_column] < q1).sum()
-    q1_to_median = ((frame[value_column] >= q1) & (frame[value_column] < median)).sum()
-    median_to_q3 = ((frame[value_column] >= median) & (frame[value_column] < q3)).sum()
-    above_q3 = (frame[value_column] >= q3).sum()
-    return pd.DataFrame({
-        "window": ["Below Q1", "Q1 to Median", "Median to Q3", "Above Q3"],
-        "count": [below_q1, q1_to_median, median_to_q3, above_q3],
-        "percentage": [
-            (below_q1 / total_count) * 100 if total_count > 0 else 0,
-            (q1_to_median / total_count) * 100 if total_count > 0 else 0,
-            (median_to_q3 / total_count) * 100 if total_count > 0 else 0,
-            (above_q3 / total_count) * 100 if total_count > 0 else 0,
-        ]
-    })
-
-
-def create_quantile_bar_chart(data: pd.DataFrame, value_column: str) -> go.Figure | None:
-    analysis = quantile_window_analysis(data, value_column)
-    if analysis.empty:
-        return None
-    fig = px.bar(
-        analysis,
-        x="window",
-        y="percentage",
-        color="window",
-        color_discrete_sequence=APP_CONFIG["colorway"],
-        text="percentage",
-    )
-    fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-    fig.update_layout(showlegend=False)
-    return chart_template(
-        fig,
-        f"Quantile Window Distribution - {display_label(value_column)}",
-        "Percentage (%)",
-        "Quantile Window",
-        height=400,
-        subtitle="Distribution of values across quantile ranges",
-    )
-
-
-def render_quantile_tab(
-    pollutant_filtered: pd.DataFrame,
-    meteorology_expanded: pd.DataFrame,
-    selected_pollutant: str | None,
-    selected_meteorology: str | None,
-    selected_stations: list[str],
-    mode: str,
+def render_dashboard(
+    pollutant_df: pd.DataFrame,
+    meteorology_df: pd.DataFrame,
+    station_meta_df: pd.DataFrame,
+    available_pollutants: list[str],
+    available_meteorology: list[str],
 ) -> None:
-    st.markdown(
-        '<p class="tab-note">Analyze the distribution of values within quantile windows for the selected variable.</p>',
-        unsafe_allow_html=True,
+    station_options = station_meta_df["station_label"].tolist()
+    min_ts = min(pollutant_df["datetime"].min(), meteorology_df["datetime"].min())
+    max_ts = max(pollutant_df["datetime"].max(), meteorology_df["datetime"].max())
+
+    defaults = default_state(station_options, available_pollutants, available_meteorology, min_ts, max_ts)
+    initialize_state(defaults)
+
+    render_header(station_meta_df, min_ts, max_ts)
+
+    controls = sidebar_controls(
+        station_options,
+        available_pollutants,
+        available_meteorology,
+        defaults,
+        min_ts,
+        max_ts,
     )
 
-    if mode == "empty":
-        st.warning("Select a pollutant or meteorology variable to analyze quantile windows.")
-        return
+    selected_stations = controls["selected_stations"]
+    selected_pollutant = controls["selected_pollutant"]
+    selected_meteorology = controls["selected_meteorology"]
+    aggregation = controls["aggregation"]
+    rolling_window = int(controls["rolling_window"])
+    start_ts = controls["start_ts"]
+    end_ts = controls["end_ts"]
 
-    primary_data = None
-    primary_column = None
-    if mode in {"pollutant", "combined"} and selected_pollutant:
-        primary_data = pollutant_filtered
-        primary_column = selected_pollutant
-    elif mode in {"meteorology", "combined"} and selected_meteorology:
-        primary_data = meteorology_expanded
-        primary_column = selected_meteorology
+    mode = determine_mode(selected_pollutant, selected_meteorology)
 
-    if primary_data is None or primary_column is None or primary_data.empty:
-        st.warning("Insufficient data for quantile window analysis.")
-        return
+    pollutant_filtered = filter_pollutant_data(pollutant_df, selected_stations, start_ts, end_ts)
+    meteorology_filtered = filter_meteorology_data(meteorology_df, start_ts, end_ts)
+    meteorology_expanded = expand_meteorology_for_stations(meteorology_filtered, selected_stations)
+    combined_df = build_combined_dataset(pollutant_filtered, meteorology_filtered)
+    month_start, month_end = month_bounds(start_ts)
+    year_start, year_end = year_bounds(start_ts)
 
-    frame = select_value_frame(primary_data, primary_column)
-    if frame.empty:
-        st.warning("No valid data available for the selected variable.")
-        return
+    if is_full_month_selection(start_ts, end_ts):
+        pollutant_month_context = pollutant_filtered
+        meteorology_month_context = meteorology_expanded
+    else:
+        pollutant_month_context = filter_pollutant_data(pollutant_df, selected_stations, month_start, month_end)
+        meteorology_month_context = expand_meteorology_for_stations(
+            filter_meteorology_data(meteorology_df, month_start, month_end),
+            selected_stations,
+        )
 
-    q1 = frame[primary_column].quantile(0.25)
-    median = frame[primary_column].quantile(0.50)
-    q3 = frame[primary_column].quantile(0.75)
-    valid_count = len(frame)
+    if is_full_year_selection(start_ts, end_ts):
+        pollutant_year_context = pollutant_filtered
+        meteorology_year_context = meteorology_expanded
+    else:
+        pollutant_year_context = filter_pollutant_data(pollutant_df, selected_stations, year_start, year_end)
+        meteorology_year_context = expand_meteorology_for_stations(
+            filter_meteorology_data(meteorology_df, year_start, year_end),
+            selected_stations,
+        )
 
-    cols = st.columns(4)
-    with cols[0]:
-        render_kpi_card("Q1 (25th Percentile)", f"{q1:.2f}", "Lower quartile")
-    with cols[1]:
-        render_kpi_card("Median (50th)", f"{median:.2f}", "Middle value")
-    with cols[2]:
-        render_kpi_card("Q3 (75th Percentile)", f"{q3:.2f}", "Upper quartile")
-    with cols[3]:
-        render_kpi_card("Valid Count", f"{valid_count:,}", "Total observations")
+    if mode == "pollutant":
+        primary_source = pollutant_filtered
+        primary_variable = selected_pollutant
+    elif mode == "meteorology":
+        primary_source = meteorology_expanded
+        primary_variable = selected_meteorology
+    elif mode == "combined":
+        primary_source = pollutant_filtered
+        primary_variable = selected_pollutant
+    else:
+        primary_source = pd.DataFrame()
+        primary_variable = None
 
-    analysis = quantile_window_analysis(primary_data, primary_column)
-    if not analysis.empty:
-        styled = analysis.style.format({
-            "count": "{:,.0f}",
-            "percentage": "{:.1f}%",
-        })
-        st.markdown("#### Summary Table")
-        st.dataframe(styled, use_container_width=True)
+    peak_value, peak_caption = peak_metric(primary_source, primary_variable)
 
-        render_chart(create_quantile_bar_chart(primary_data, primary_column), "No bar chart available.")
+    render_top_kpis(
+        selected_stations,
+        selected_pollutant,
+        selected_meteorology,
+        peak_value,
+        peak_caption,
+    )
 
-    if len(selected_stations) > 1:
-        st.markdown("#### Station-wise Comparison")
-        station_summaries = []
-        for station in selected_stations:
-            station_data = primary_data[primary_data["station_label"] == station]
-            if not station_data.empty:
-                station_analysis = quantile_window_analysis(station_data, primary_column)
-                if not station_analysis.empty:
-                    station_analysis["station"] = compact_station_label(station)
-                    station_summaries.append(station_analysis)
-        if station_summaries:
-            combined = pd.concat(station_summaries, ignore_index=True)
-            st.dataframe(combined, use_container_width=True)
+    download_df = create_download_dataset(
+        mode,
+        pollutant_filtered,
+        meteorology_filtered,
+        meteorology_expanded,
+        selected_pollutant,
+        selected_meteorology,
+    )
+    st.download_button(
+        label="📥 Download filtered dataset",
+        data=download_bytes(download_df),
+        file_name="filtered_air_quality_dashboard.csv",
+        mime="text/csv",
+        disabled=download_df.empty,
+    )
+
+    overview_tab, timeseries_tab, distribution_tab, relationships_tab, quality_tab, quantile_tab = st.tabs(
+        ["Overview", "Time Series", "Distribution", "Relationships", "Data Quality", "Quantile Window Analysis"]
+    )
+
+    with overview_tab:
+        st.markdown(
+            '<p class="tab-note">Adaptive logic: 1 day = hourly 00:00–23:00, 3 days = 3 hourly panels, 15 days = daily average, full month = monthly views, full year = yearly monthly average.</p>',
+            unsafe_allow_html=True,
+        )
+
+        if mode == "pollutant" and selected_pollutant:
+            render_chart(
+                create_diurnal_figure(pollutant_filtered, selected_pollutant),
+                "No pollutant diurnal profile is available.",
+            )
+            render_chart(
+                create_recent_figure(pollutant_filtered, selected_pollutant, start_ts, end_ts),
+                "No pollutant recent view is available.",
+            )
+            col1, col2 = st.columns(2)
+            with col1:
+                render_chart(
+                    create_monthly_daily_average_figure(
+                        pollutant_month_context,
+                        selected_pollutant,
+                        month_start,
+                        month_end,
+                    ),
+                    "No monthly daily-average trend is available.",
+                )
+            with col2:
+                render_chart(
+                    create_yearly_month_average_figure(
+                        pollutant_year_context,
+                        selected_pollutant,
+                        year_start,
+                        year_end,
+                    ),
+                    "No yearly trend is available.",
+                )
+
+        elif mode == "meteorology" and selected_meteorology:
+            render_chart(
+                create_diurnal_figure(meteorology_expanded, selected_meteorology),
+                "No meteorology diurnal profile is available.",
+            )
+            render_chart(
+                create_recent_figure(meteorology_expanded, selected_meteorology, start_ts, end_ts),
+                "No meteorology recent view is available.",
+            )
+            col1, col2 = st.columns(2)
+            with col1:
+                render_chart(
+                    create_monthly_daily_average_figure(
+                        meteorology_month_context,
+                        selected_meteorology,
+                        month_start,
+                        month_end,
+                    ),
+                    "No monthly daily-average meteorology trend is available.",
+                )
+            with col2:
+                render_chart(
+                    create_yearly_month_average_figure(
+                        meteorology_year_context,
+                        selected_meteorology,
+                        year_start,
+                        year_end,
+                    ),
+                    "No yearly meteorology trend is available.",
+                )
+
+        elif mode == "combined" and selected_pollutant and selected_meteorology:
+            left_chart, right_chart = st.columns(2)
+            with left_chart:
+                render_chart(
+                    create_diurnal_figure(pollutant_filtered, selected_pollutant),
+                    "No pollutant diurnal profile is available.",
+                )
+            with right_chart:
+                render_chart(
+                    create_diurnal_figure(meteorology_expanded, selected_meteorology),
+                    "No meteorology diurnal profile is available.",
+                )
+
+            render_chart(
+                create_overlay_figure(
+                    pollutant_filtered,
+                    meteorology_filtered.assign(station_label="Regional ERA5"),
+                    selected_pollutant,
+                    selected_meteorology,
+                    "Hourly",
+                    1,
+                    "Dual-Axis Overlay - Pollutant vs Meteorology",
+                ),
+                "Overlay plot needs valid pollutant and meteorology records.",
+            )
+
+            col1, col2 = st.columns(2)
+            with col1:
+                render_chart(
+                    create_monthly_daily_average_figure(
+                        pollutant_month_context,
+                        selected_pollutant,
+                        month_start,
+                        month_end,
+                    ),
+                    "No monthly pollutant trend is available.",
+                )
+            with col2:
+                render_chart(
+                    create_monthly_daily_average_figure(
+                        meteorology_month_context,
+                        selected_meteorology,
+                        month_start,
+                        month_end,
+                    ),
+                    "No monthly meteorology trend is available.",
+                )
+        else:
+            st.info("Select a pollutant, a meteorology variable, or both.")
+
+        if primary_variable is not None and not primary_source.empty:
+            st.markdown("#### Top Extreme Days")
+            extreme_table = extreme_days_table(primary_source, primary_variable)
+            if extreme_table.empty:
+                st.info("No extreme-day summary is available for the current filters.")
+            else:
+                styled = extreme_table.style.format(
+                    {
+                        "daily_mean": "{:,.2f}",
+                        "daily_max": "{:,.2f}",
+                        "daily_min": "{:,.2f}",
+                        "valid_obs": "{:,.0f}",
+                    }
+                )
+                st.dataframe(styled, use_container_width=True)
+
+    with timeseries_tab:
+        st.markdown(
+            '<p class="tab-note">Aggregation, rolling averages, peaks, and >90th percentile markers are controlled from the sidebar.</p>',
+            unsafe_allow_html=True,
+        )
+
+        if mode == "empty":
+            st.info("Select a pollutant, a meteorology variable, or both to populate the time series views.")
+
+        if mode in {"pollutant", "combined"} and selected_pollutant:
+            render_chart(
+                create_timeseries_figure(pollutant_filtered, selected_pollutant, aggregation, rolling_window),
+                "No pollutant time series is available.",
+            )
+
+        if mode in {"meteorology", "combined"} and selected_meteorology:
+            render_chart(
+                create_timeseries_figure(meteorology_expanded, selected_meteorology, aggregation, rolling_window),
+                "No meteorology time series is available.",
+            )
+
+        if mode == "combined" and selected_pollutant and selected_meteorology:
+            render_chart(
+                create_overlay_figure(
+                    pollutant_filtered,
+                    meteorology_filtered.assign(station_label="Regional ERA5"),
+                    selected_pollutant,
+                    selected_meteorology,
+                    aggregation,
+                    rolling_window,
+                    "Dual-Axis Overlay",
+                ),
+                "Overlay time series requires both pollutant and meteorology records.",
+            )
+
+    with distribution_tab:
+        st.markdown(
+            '<p class="tab-note">Boxplots, histograms, and quantile summaries for the active variable selection.</p>',
+            unsafe_allow_html=True,
+        )
+
+        if mode in {"pollutant", "combined"} and selected_pollutant:
+            st.markdown(f"#### {display_label(selected_pollutant)}")
+            c1, c2 = st.columns(2)
+            with c1:
+                render_chart(create_boxplot_figure(pollutant_filtered, selected_pollutant), "No pollutant boxplot is available.")
+            with c2:
+                render_chart(create_histogram_figure(pollutant_filtered, selected_pollutant), "No pollutant histogram is available.")
+            render_quantile_table(pollutant_filtered, selected_pollutant, selected_stations)
+
+        if mode in {"meteorology", "combined"} and selected_meteorology:
+            st.markdown(f"#### {display_label(selected_meteorology)}")
+            c1, c2 = st.columns(2)
+            with c1:
+                render_chart(create_boxplot_figure(meteorology_expanded, selected_meteorology), "No meteorology boxplot is available.")
+            with c2:
+                render_chart(create_histogram_figure(meteorology_expanded, selected_meteorology), "No meteorology histogram is available.")
+            render_quantile_table(meteorology_expanded, selected_meteorology, selected_stations)
+
+    with relationships_tab:
+        st.markdown(
+            '<p class="tab-note">Scatter, regression, and correlation heatmaps help explore pollutant–meteorology relationships.</p>',
+            unsafe_allow_html=True,
+        )
+
+        if mode != "combined" or not selected_pollutant or not selected_meteorology:
+            st.info("Relationship analytics unlock when both a pollutant and a meteorology variable are selected.")
+        else:
+            left_rel, right_rel = st.columns([1.1, 1.0])
+            with left_rel:
+                render_chart(
+                    create_scatter_figure(combined_df, selected_pollutant, selected_meteorology),
+                    "Relationship scatter plot is unavailable.",
+                )
+            with right_rel:
+                render_chart(
+                    create_correlation_heatmap(
+                        combined_df,
+                        selected_pollutant,
+                        selected_meteorology,
+                        available_pollutants,
+                        available_meteorology,
+                    ),
+                    "Correlation heatmap is unavailable.",
+                )
+
+    with quality_tab:
+        st.markdown(
+            '<p class="tab-note">Completeness, missingness, and summary statistics for the active variables.</p>',
+            unsafe_allow_html=True,
+        )
+        summaries = []
+
+        if mode in {"pollutant", "combined"} and selected_pollutant:
+            summaries.append(
+                render_quality_block(
+                    f"{display_label(selected_pollutant)} Data Quality",
+                    pollutant_filtered,
+                    selected_pollutant,
+                    selected_stations,
+                    start_ts,
+                    end_ts,
+                )
+            )
+
+        if mode in {"meteorology", "combined"} and selected_meteorology:
+            summaries.append(
+                render_quality_block(
+                    f"{display_label(selected_meteorology)} Data Quality",
+                    meteorology_expanded,
+                    selected_meteorology,
+                    selected_stations,
+                    start_ts,
+                    end_ts,
+                )
+            )
+
+        if summaries:
+            combined_summary = pd.concat(summaries, ignore_index=True)
+            st.markdown("#### Combined Quality Table")
+            st.dataframe(combined_summary, use_container_width=True)
+
+
+    with quantile_tab:
+        render_quantile_tab(
+            pollutant_filtered,
+            meteorology_expanded,
+            selected_pollutant,
+            selected_meteorology,
+            selected_stations,
+            mode,
+        )
 
 
 def render_dependency_error() -> None:
