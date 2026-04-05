@@ -2133,8 +2133,8 @@ def render_dashboard(
         disabled=download_df.empty,
     )
 
-    overview_tab, timeseries_tab, distribution_tab, relationships_tab, quality_tab = st.tabs(
-        ["Overview", "Time Series", "Distribution", "Relationships", "Data Quality"]
+    overview_tab, timeseries_tab, distribution_tab, relationships_tab, quality_tab, quantile_tab = st.tabs(
+        ["Overview", "Time Series", "Distribution", "Relationships", "Data Quality", "Quantile Window Analysis"]
     )
 
     with overview_tab:
@@ -2392,6 +2392,17 @@ def render_dashboard(
             combined_summary = pd.concat(summaries, ignore_index=True)
             st.markdown("#### Combined Quality Table")
             st.dataframe(combined_summary, use_container_width=True)
+
+
+    with quantile_tab:
+        render_quantile_tab(
+            pollutant_filtered,
+            meteorology_expanded,
+            selected_pollutant,
+            selected_meteorology,
+            selected_stations,
+            mode,
+        )
 
 
 def render_dependency_error() -> None:
