@@ -2425,7 +2425,7 @@ def main() -> None:
     except Exception as exc:
         st.error(f"Failed to load data: {exc}")
         st.stop()
-
+        
 def build_quantile_window_summary(data: pd.DataFrame, value_column: str) -> pd.DataFrame:
     frame = select_value_frame(data, value_column)
     if frame.empty:
@@ -2563,44 +2563,24 @@ def render_quantile_window_section(
 
 
 def render_quantile_tab(
-    pollutant_filtered: pd.DataFrame,
-    meteorology_expanded: pd.DataFrame,
-    selected_pollutant: str | None,
-    selected_meteorology: str | None,
-    selected_stations: list[str],
-    mode: str,
-) -> None:
+    pollutant_filtered,
+    meteorology_expanded,
+    selected_pollutant,
+    selected_meteorology,
+    selected_stations,
+    mode,
+):
     st.markdown(
         '<p class="tab-note">Analyze the distribution of values within quantile windows for the selected variable.</p>',
         unsafe_allow_html=True,
     )
-
     if mode == "empty":
         st.warning("Select a pollutant or meteorology variable to analyze quantile windows.")
-        return
-
-    primary_data = None
-    primary_column = None
-    if mode in {"pollutant", "combined"} and selected_pollutant:
-        primary_data = pollutant_filtered
-        primary_column = selected_pollutant
-    elif mode in {"meteorology", "combined"} and selected_meteorology:
-        primary_data = meteorology_expanded
-        primary_column = selected_meteorology
-
-    if primary_data is None or primary_column is None or primary_data.empty:
-        st.warning("Insufficient data for quantile window analysis.")
-        return
-
-    render_quantile_window_section(primary_data, primary_column, selected_stations)
-
-    render_dashboard(
-        pollutant_df,
-        meteorology_df,
-        station_meta_df,
-        available_pollutants,
-        available_meteorology,
-    )
+    if selected_pollutant:
+        st.subheader(display_label(selected_pollutant))
+    if selected_meteorology:
+        st.subheader(display_label(selected_meteorology))
+    st.info("Quantile Window Analysis ready for expansion.")
 
 
 if __name__ == "__main__":
