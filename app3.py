@@ -2426,6 +2426,174 @@ def main() -> None:
         st.error(f"Failed to load data: {exc}")
         st.stop()
 
+def build_quantile_window_summary(data: pd.DataFrame, value_column: str) -> pd.DataFrame:
+    frame = select_value_frame(data, value_column)
+    if frame.empty:
+        return pd.DataFrame()
+    q1 = frame[value_column].quantile(0.25)
+    median = frame[value_column].quantile(0.50)
+    q3 = frame[value_column].quantile(0.75)
+    total_count = len(frame)
+    below_q1 = (frame[value_column] < q1).sum()
+    q1_to_median = ((frame[value_column] >= q1) & (frame[value_column] < median)).sum()
+    median_to_q3 = ((frame[value_column] >= median) & (frame[value_column] < q3)).sum()
+    above_q3 = (frame[value_column] >= q3).sum()
+    return pd.DataFrame({
+        "window": ["Below Q1", "Q1 to Median", "Median to Q3", "Above Q3"],
+        "count": [below_q1, q1_to_median, median_to_q3, above_q3],
+        "percentage": [
+            (below_q1 / total_count) * 100 if total_count > 0 else 0,
+            (q1_to_median / total_count) * 100 if total_count > 0 else 0,
+            (median_to_q3 / total_count) * 100 if total_count > 0 else 0,
+            (above_q3 / total_count) * 100 if total_count > 0 else 0,
+        ]
+    })
+
+
+def build_station_quantile_comparison(data: pd.DataFrame, value_column: str, selected_stations: list[str]) -> pd.DataFrame:
+    if len(selected_stations) <= 1:
+        return pd.DataFrame()
+    summaries = []
+    for station in selected_stations:
+        station_data = data[data["station_label"] == station]
+        if not station_data.empty:
+            summary = build_quantile_window_summary(station_data, value_column)
+            if not summary.empty:
+                summary["station"] = compact_station_label(station)
+                summaries.append(summary)
+    if summaries:
+        return pd.concat(summaries, ignore_index=True)
+    return pd.DataFrame()
+
+
+def create_quantile_window_bar(data: pd.DataFrame, value_column: str) -> go.Figure | None:
+    analysis = build_quantile_window_summary(data, value_column)
+    if analysis.empty:
+        return None
+    fig = px.bar(
+        analysis,
+        x="window",
+        y="percentage",
+        color="window",
+        color_discrete_sequence=APP_CONFIG["colorway"],
+        text="percentage",
+    )
+    fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+    fig.update_layout(showlegend=False)
+    return chart_template(
+        fig,
+        f"Quantile Window Distribution - {display_label(value_column)}",
+        "Percentage (%)",
+        "Quantile Window",
+        height=400,
+        subtitle="Distribution of values across quantile ranges",
+    )
+
+
+def create_station_quantile_chart(data: pd.DataFrame, value_column: str, selected_stations: list[str]) -> go.Figure | None:
+    comparison = build_station_quantile_comparison(data, value_column, selected_stations)
+    if comparison.empty:
+        return None
+    fig = px.bar(
+        comparison,
+        x="window",
+        y="percentage",
+        color="station",
+        barmode="group",
+        color_discrete_sequence=APP_CONFIG["colorway"],
+        text="percentage",
+    )
+    fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+    return chart_template(
+        fig,
+        f"Station-wise Quantile Window Comparison - {display_label(value_column)}",
+        "Percentage (%)",
+        "Quantile Window",
+        height=400,
+        subtitle="Comparison across selected stations",
+    )
+
+
+def render_quantile_window_section(
+    data: pd.DataFrame,
+    value_column: str,
+    selected_stations: list[str],
+) -> None:
+    if data.empty or value_column not in data.columns:
+        st.warning("Insufficient data for quantile window analysis.")
+        return
+
+    frame = select_value_frame(data, value_column)
+    if frame.empty:
+        st.warning("No valid data available for the selected variable.")
+        return
+
+    q1 = frame[value_column].quantile(0.25)
+    median = frame[value_column].quantile(0.50)
+    q3 = frame[value_column].quantile(0.75)
+    valid_count = len(frame)
+
+    cols = st.columns(4)
+    with cols[0]:
+        render_kpi_card("Q1 (25th Percentile)", f"{q1:.2f}", "Lower quartile")
+    with cols[1]:
+        render_kpi_card("Median (50th)", f"{median:.2f}", "Middle value")
+    with cols[2]:
+        render_kpi_card("Q3 (75th Percentile)", f"{q3:.2f}", "Upper quartile")
+    with cols[3]:
+        render_kpi_card("Valid Count", f"{valid_count:,}", "Total observations")
+
+    analysis = build_quantile_window_summary(data, value_column)
+    if not analysis.empty:
+        styled = analysis.style.format({
+            "count": "{:,.0f}",
+            "percentage": "{:.1f}%",
+        })
+        st.markdown("#### Summary Table")
+        st.dataframe(styled, use_container_width=True)
+
+        render_chart(create_quantile_window_bar(data, value_column), "No bar chart available.")
+
+    if len(selected_stations) > 1:
+        st.markdown("#### Station-wise Comparison")
+        comparison = build_station_quantile_comparison(data, value_column, selected_stations)
+        if not comparison.empty:
+            st.dataframe(comparison, use_container_width=True)
+            render_chart(create_station_quantile_chart(data, value_column, selected_stations), "No comparison chart available.")
+
+
+def render_quantile_tab(
+    pollutant_filtered: pd.DataFrame,
+    meteorology_expanded: pd.DataFrame,
+    selected_pollutant: str | None,
+    selected_meteorology: str | None,
+    selected_stations: list[str],
+    mode: str,
+) -> None:
+    st.markdown(
+        '<p class="tab-note">Analyze the distribution of values within quantile windows for the selected variable.</p>',
+        unsafe_allow_html=True,
+    )
+
+    if mode == "empty":
+        st.warning("Select a pollutant or meteorology variable to analyze quantile windows.")
+        return
+
+    primary_data = None
+    primary_column = None
+    if mode in {"pollutant", "combined"} and selected_pollutant:
+        primary_data = pollutant_filtered
+        primary_column = selected_pollutant
+    elif mode in {"meteorology", "combined"} and selected_meteorology:
+        primary_data = meteorology_expanded
+        primary_column = selected_meteorology
+
+    if primary_data is None or primary_column is None or primary_data.empty:
+        st.warning("Insufficient data for quantile window analysis.")
+        return
+
+    render_quantile_window_section(primary_data, primary_column, selected_stations)
+
     render_dashboard(
         pollutant_df,
         meteorology_df,
