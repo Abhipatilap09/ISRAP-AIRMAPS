@@ -25,6 +25,42 @@ APP_CONFIG = {
     "app_title": "Atmospheric Intelligence Hub",
     "app_subtitle": "Research-grade exploration of EPA AQS station pollutants and ERA5 meteorology.",
     "epa_map_url": "https://epa.maps.arcgis.com/apps/webappviewer/index.html?id=5f239fd3e72f424f98ef3d5def547eb5&extent=-146.2334,13.1913,-46.3896,56.5319",
+    "station_aqs_ids": {
+        "32": "480290032",
+        "52": "480290052",
+        "59": "480290059",
+        "1069": "480291069",
+        "1080": "480291080",
+        "1087": "480291087",
+    },
+    "station_clusters": {
+        "32": "Northwest / Central",
+        "52": "Northwest / Central",
+        "59": "Northwest / Central",
+        "1069": "Southeast",
+        "1080": "Southeast",
+        "1087": "Southeast",
+    },
+    "distance_pairs_km": {
+        ("32", "52"): 10,
+        ("32", "59"): 15,
+        ("32", "1069"): 28,
+        ("32", "1080"): 35,
+        ("32", "1087"): 32,
+        ("52", "59"): 12,
+        ("52", "1069"): 30,
+        ("52", "1080"): 41,
+        ("52", "1087"): 37,
+        ("59", "1069"): 20,
+        ("59", "1080"): 36,
+        ("59", "1087"): 30,
+        ("1069", "1080"): 12,
+        ("1069", "1087"): 8,
+        ("1080", "1087"): 10,
+    },
+    "within_cluster_range_km": "5-15 km",
+    "across_city_range_km": "30-40 km",
+    "city_wide_spread_km": "40 km",
     "pollutant_dir": BASE_DIR / "Station_wise_dataset_for_EPA_AQS",
     "meteorology_file": BASE_DIR / "ERA5_hourly_formatted_00_23.csv",
     "local_timezone": "America/Chicago",
@@ -2204,6 +2240,83 @@ def render_epa_map_tab() -> None:
     components.iframe(APP_CONFIG["epa_map_url"], height=900, scrolling=True)
 
 
+def build_station_network_table(station_meta_df: pd.DataFrame) -> pd.DataFrame:
+    network = station_meta_df.copy()
+    network["site"] = network["site"].astype(str)
+    network["full_aqs_id"] = network["site"].map(APP_CONFIG["station_aqs_ids"]).fillna("Not provided")
+    network["cluster"] = network["site"].map(APP_CONFIG["station_clusters"]).fillna("Unclassified")
+    keep = ["station_label", "site", "full_aqs_id", "cluster", "state_code", "county_code", "records", "start", "end"]
+    network = network[keep].rename(
+        columns={
+            "station_label": "Station",
+            "site": "Site Code",
+            "full_aqs_id": "Full AQS ID",
+            "cluster": "Cluster",
+            "state_code": "State",
+            "county_code": "County",
+            "records": "Records",
+            "start": "Start",
+            "end": "End",
+        }
+    )
+    return network
+
+
+def build_distance_matrix(site_codes: list[str]) -> pd.DataFrame:
+    ordered_sites = [site for site in APP_CONFIG["station_aqs_ids"] if site in site_codes]
+    for site in site_codes:
+        if site not in ordered_sites:
+            ordered_sites.append(site)
+
+    matrix = pd.DataFrame(index=ordered_sites, columns=ordered_sites, dtype="object")
+    for site in ordered_sites:
+        matrix.loc[site, site] = "0 km"
+
+    for (left, right), distance_km in APP_CONFIG["distance_pairs_km"].items():
+        if left in matrix.index and right in matrix.columns:
+            value = f"~{distance_km} km"
+            matrix.loc[left, right] = value
+            matrix.loc[right, left] = value
+
+    matrix = matrix.fillna("-")
+    matrix.index = [f"Site {site}" for site in matrix.index]
+    matrix.columns = [f"Site {site}" for site in matrix.columns]
+    return matrix
+
+
+def render_station_network_tab(station_meta_df: pd.DataFrame) -> None:
+    st.markdown(
+        '<p class="tab-note">Manual Bexar County station metadata, AQS IDs, spatial clustering, and approximate inter-station distances for research context.</p>',
+        unsafe_allow_html=True,
+    )
+
+    cols = st.columns(3)
+    with cols[0]:
+        render_kpi_card("Within Cluster", APP_CONFIG["within_cluster_range_km"], "Typical spacing for stations in the same cluster")
+    with cols[1]:
+        render_kpi_card("Across City", APP_CONFIG["across_city_range_km"], "Typical spacing between the northwest and southeast groups")
+    with cols[2]:
+        render_kpi_card("City-Wide Spread", APP_CONFIG["city_wide_spread_km"], "Approximate monitor spread across San Antonio")
+
+    st.markdown(
+        "Research insight: stations 32, 52, and 59 form the northwest/central cluster, while 1069, 1080, and 1087 form the southeast cluster.",
+    )
+    st.markdown(
+        "Research insight: nearby stations are roughly 5-15 km apart, while cross-city comparisons are often 30-40 km apart.",
+    )
+
+    network_table = build_station_network_table(station_meta_df)
+    st.markdown("#### Station Metadata")
+    st.dataframe(
+        network_table.style.format({"Records": "{:,.0f}", "Start": "{:%Y-%m-%d}", "End": "{:%Y-%m-%d}"}),
+        width="stretch",
+    )
+
+    st.markdown("#### Approximate Distance Matrix")
+    distance_matrix = build_distance_matrix(network_table["Site Code"].astype(str).tolist())
+    st.dataframe(distance_matrix, width="stretch")
+
+
 def render_dashboard(
     pollutant_df: pd.DataFrame,
     meteorology_df: pd.DataFrame,
@@ -2287,8 +2400,8 @@ def render_dashboard(
         st.warning("Select a pollutant, a meteorology variable, or both to start exploring the dashboard.")
         return
 
-    overview_tab, map_tab, timeseries_tab, distribution_tab, relationships_tab, quality_tab, quantile_tab = st.tabs(
-        ["Overview", "EPA Map", "Time Series", "Distribution", "Relationships", "Data Quality", "Quantile Windows"]
+    overview_tab, network_tab, map_tab, timeseries_tab, distribution_tab, relationships_tab, quality_tab, quantile_tab = st.tabs(
+        ["Overview", "Station Network", "EPA Map", "Time Series", "Distribution", "Relationships", "Data Quality", "Quantile Windows"]
     )
 
     with overview_tab:
@@ -2544,6 +2657,9 @@ def render_dashboard(
 
     with map_tab:
         render_epa_map_tab()
+
+    with network_tab:
+        render_station_network_tab(station_meta_df)
 
     with quantile_tab:
         render_quantile_tab(
