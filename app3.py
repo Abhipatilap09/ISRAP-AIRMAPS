@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterable
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 IMPORT_ERROR: ModuleNotFoundError | None = None
 
@@ -23,6 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent
 APP_CONFIG = {
     "app_title": "Atmospheric Intelligence Hub",
     "app_subtitle": "Research-grade exploration of EPA AQS station pollutants and ERA5 meteorology.",
+    "epa_map_url": "https://epa.maps.arcgis.com/apps/webappviewer/index.html?id=5f239fd3e72f424f98ef3d5def547eb5&extent=-146.2334,13.1913,-46.3896,56.5319",
     "pollutant_dir": BASE_DIR / "Station_wise_dataset_for_EPA_AQS",
     "meteorology_file": BASE_DIR / "ERA5_hourly_formatted_00_23.csv",
     "local_timezone": "America/Chicago",
@@ -2188,8 +2190,20 @@ def render_quantile_tab(
     if selected_meteorology:
         st.subheader(display_label(selected_meteorology))
         render_quantile_window_section(meteorology_expanded, selected_meteorology, selected_stations)
- 
- 
+
+
+def render_epa_map_tab() -> None:
+    st.markdown(
+        '<p class="tab-note">Embedded EPA ArcGIS viewer for side-by-side spatial context with the dashboard analytics.</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'[Open the EPA map in a new tab]({APP_CONFIG["epa_map_url"]})',
+        unsafe_allow_html=True,
+    )
+    components.iframe(APP_CONFIG["epa_map_url"], height=900, scrolling=True)
+
+
 def render_dashboard(
     pollutant_df: pd.DataFrame,
     meteorology_df: pd.DataFrame,
@@ -2273,13 +2287,17 @@ def render_dashboard(
         st.warning("Select a pollutant, a meteorology variable, or both to start exploring the dashboard.")
         return
 
-    overview_tab, timeseries_tab, distribution_tab, relationships_tab, quality_tab, quantile_tab = st.tabs(
-        ["Overview", "Time Series", "Distribution", "Relationships", "Data Quality", "Quantile Windows"]
+    overview_tab, map_tab, timeseries_tab, distribution_tab, relationships_tab, quality_tab, quantile_tab = st.tabs(
+        ["Overview", "EPA Map", "Time Series", "Distribution", "Relationships", "Data Quality", "Quantile Windows"]
     )
 
     with overview_tab:
         st.markdown(
             '<p class="tab-note">Adaptive logic: 1 day = hourly 00:00-23:00, 3 days = 3 hourly panels, 15 days = daily average, full month = monthly views, full year = yearly monthly average.</p>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<p class="tab-note"><strong>New:</strong> Open the embedded EPA viewer from the <strong>EPA Map</strong> tab or <a href="{APP_CONFIG["epa_map_url"]}" target="_blank">launch it in a new tab</a>.</p>',
             unsafe_allow_html=True,
         )
 
@@ -2523,6 +2541,9 @@ def render_dashboard(
             combined_summary = pd.concat(summaries, ignore_index=True)
             st.markdown("#### Combined Quality Table")
             st.dataframe(combined_summary, use_container_width=True)
+
+    with map_tab:
+        render_epa_map_tab()
 
     with quantile_tab:
         render_quantile_tab(
