@@ -41,7 +41,7 @@ APP_CONFIG = {
         "1080": "Southeast",
         "1087": "Southeast",
     },
-    "distance_pairs_km": {
+    "distance_pairs_miles": {
         ("32", "52"): 10,
         ("32", "59"): 15,
         ("32", "1069"): 28,
@@ -58,9 +58,9 @@ APP_CONFIG = {
         ("1069", "1087"): 8,
         ("1080", "1087"): 10,
     },
-    "within_cluster_range_km": "5-15 km",
-    "across_city_range_km": "30-40 km",
-    "city_wide_spread_km": "40 km",
+    "within_cluster_range_miles": "3-9 miles",
+    "across_city_range_miles": "19-25 miles",
+    "city_wide_spread_miles": "25 miles",
     "pollutant_dir": BASE_DIR / "Station_wise_dataset_for_EPA_AQS",
     "meteorology_file": BASE_DIR / "ERA5_hourly_formatted_00_23.csv",
     "local_timezone": "America/Chicago",
@@ -2272,9 +2272,9 @@ def build_distance_matrix(site_codes: list[str]) -> pd.DataFrame:
     for site in ordered_sites:
         matrix.loc[site, site] = "0 km"
 
-    for (left, right), distance_km in APP_CONFIG["distance_pairs_km"].items():
+    for (left, right), distance_miles in APP_CONFIG["distance_pairs_miles"].items():
         if left in matrix.index and right in matrix.columns:
-            value = f"~{distance_km} km"
+            value = f"~{distance_miles} miles"
             matrix.loc[left, right] = value
             matrix.loc[right, left] = value
 
@@ -2292,17 +2292,17 @@ def render_station_network_tab(station_meta_df: pd.DataFrame) -> None:
 
     cols = st.columns(3)
     with cols[0]:
-        render_kpi_card("Within Cluster", APP_CONFIG["within_cluster_range_km"], "Typical spacing for stations in the same cluster")
+        render_kpi_card("Within Cluster", APP_CONFIG["within_cluster_range_miles"], "Typical spacing for stations in the same cluster")
     with cols[1]:
-        render_kpi_card("Across City", APP_CONFIG["across_city_range_km"], "Typical spacing between the northwest and southeast groups")
+        render_kpi_card("Across City", APP_CONFIG["across_city_range_miles"], "Typical spacing between the northwest and southeast groups")
     with cols[2]:
-        render_kpi_card("City-Wide Spread", APP_CONFIG["city_wide_spread_km"], "Approximate monitor spread across San Antonio")
+        render_kpi_card("City-Wide Spread", APP_CONFIG["city_wide_spread_miles"], "Approximate monitor spread across San Antonio")
 
     st.markdown(
         "Research insight: stations 32, 52, and 59 form the northwest/central cluster, while 1069, 1080, and 1087 form the southeast cluster.",
     )
     st.markdown(
-        "Research insight: nearby stations are roughly 5-15 km apart, while cross-city comparisons are often 30-40 km apart.",
+        "Research insight: nearby stations are roughly 3-9 miles apart, while cross-city comparisons are often 19-25 miles apart.",
     )
 
     network_table = build_station_network_table(station_meta_df)
