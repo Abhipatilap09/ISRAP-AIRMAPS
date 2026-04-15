@@ -374,7 +374,13 @@ def first_available(options: Iterable[str], priority: Iterable[str]) -> str | No
 
 
 def station_files() -> list[Path]:
-    return sorted(APP_CONFIG["pollutant_dir"].glob("*.csv"))
+    primary_files = sorted(APP_CONFIG["pollutant_dir"].glob("*.csv"))
+    if primary_files:
+        return primary_files
+    fallback_files = sorted(BASE_DIR.glob("station*_data.csv"))
+    if fallback_files:
+        return fallback_files
+    return sorted(BASE_DIR.glob("*.csv"))
 
 
 @st.cache_data(show_spinner="Loading EPA station pollutant files...")
@@ -2317,6 +2323,438 @@ def render_station_network_tab(station_meta_df: pd.DataFrame) -> None:
     st.dataframe(distance_matrix, width="stretch")
 
 
+
+
+
+def prepare_anomaly_dataset(data: pd.DataFrame, value_column: str) -> pd.DataFrame:
+    frame = select_value_frame(data, value_column)
+    if frame.empty:
+        return frame
+    return frame.sort_values(["station_label", "datetime"]).reset_index(drop=True)
+
+
+def detect_rolling_zscore_anomalies(
+    data: pd.DataFrame,
+    value_column: str,
+    window: int = 24,
+    threshold: float = 3.0,
+) -> pd.DataFrame:
+    frame = prepare_anomaly_dataset(data, value_column)
+    if frame.empty:
+        return frame
+
+    pieces = []
+    for station, station_frame in frame.groupby("station_label", observed=True):
+        station_frame = station_frame.copy().sort_values("datetime")
+        min_periods = max(3, min(window, 6))
+        rolling_mean = station_frame[value_column].rolling(window=window, min_periods=min_periods).mean()
+        rolling_std = station_frame[value_column].rolling(window=window, min_periods=min_periods).std().replace(0, np.nan)
+        zscore = (station_frame[value_column] - rolling_mean) / rolling_std
+        station_frame["anomaly_score"] = zscore
+        station_frame["anomaly_flag"] = zscore.abs() > threshold
+        station_frame["method"] = "Rolling Z-Score"
+        pieces.append(station_frame)
+
+    return pd.concat(pieces, ignore_index=True)
+
+
+def detect_iqr_anomalies(
+    data: pd.DataFrame,
+    value_column: str,
+    multiplier: float = 1.5,
+) -> pd.DataFrame:
+    frame = prepare_anomaly_dataset(data, value_column)
+    if frame.empty:
+        return frame
+
+    pieces = []
+    for station, station_frame in frame.groupby("station_label", observed=True):
+        station_frame = station_frame.copy()
+        q1 = station_frame[value_column].quantile(0.25)
+        q3 = station_frame[value_column].quantile(0.75)
+        iqr = q3 - q1
+        lower = q1 - multiplier * iqr
+        upper = q3 + multiplier * iqr
+        station_frame["lower_bound"] = lower
+        station_frame["upper_bound"] = upper
+        station_frame["anomaly_score"] = np.where(
+            station_frame[value_column] > upper,
+            station_frame[value_column] - upper,
+            np.where(station_frame[value_column] < lower, lower - station_frame[value_column], 0.0),
+        )
+        station_frame["anomaly_flag"] = (station_frame[value_column] < lower) | (station_frame[value_column] > upper)
+        station_frame["method"] = "IQR"
+        pieces.append(station_frame)
+
+    return pd.concat(pieces, ignore_index=True)
+
+
+def detect_isolation_forest_anomalies(
+    data: pd.DataFrame,
+    value_column: str,
+    contamination: float = 0.02,
+) -> pd.DataFrame:
+    frame = prepare_anomaly_dataset(data, value_column)
+    if frame.empty:
+        return frame
+
+    try:
+        from sklearn.ensemble import IsolationForest
+    except ModuleNotFoundError:
+        frame["anomaly_score"] = np.nan
+        frame["anomaly_flag"] = False
+        frame["method"] = "Isolation Forest"
+        frame["status_message"] = "scikit-learn is not installed. Run: pip install scikit-learn"
+        return frame
+
+    excluded = {"datetime", "station_label", APP_CONFIG["state_col"], APP_CONFIG["county_col"], APP_CONFIG["site_col"], "station_file"}
+    feature_candidates = [
+        c for c in data.columns
+        if c not in excluded and c != value_column and pd.api.types.is_numeric_dtype(data[c])
+    ]
+
+    pieces = []
+    for station, station_frame in frame.groupby("station_label", observed=True):
+        station_frame = station_frame.copy().sort_values("datetime")
+        if "station_label" in data.columns:
+            original_station_frame = data[data["station_label"] == station].copy().sort_values("datetime")
+        else:
+            original_station_frame = station_frame.copy()
+
+        model_frame = pd.DataFrame({
+            value_column: pd.to_numeric(original_station_frame[value_column], errors="coerce"),
+            "hour": pd.to_datetime(original_station_frame["datetime"]).dt.hour,
+            "dayofweek": pd.to_datetime(original_station_frame["datetime"]).dt.dayofweek,
+            "month": pd.to_datetime(original_station_frame["datetime"]).dt.month,
+        })
+        for col in feature_candidates:
+            if col in original_station_frame.columns:
+                model_frame[col] = pd.to_numeric(original_station_frame[col], errors="coerce")
+
+        valid_mask = model_frame.notna().all(axis=1)
+        scores = pd.Series(np.nan, index=original_station_frame.index, dtype=float)
+        flags = pd.Series(False, index=original_station_frame.index, dtype=bool)
+
+        if int(valid_mask.sum()) >= 10:
+            model = IsolationForest(
+                contamination=min(max(contamination, 0.001), 0.25),
+                random_state=42,
+                n_estimators=200,
+            )
+            fitted = model.fit(model_frame.loc[valid_mask])
+            decision = fitted.decision_function(model_frame.loc[valid_mask])
+            preds = fitted.predict(model_frame.loc[valid_mask])
+            scores.loc[valid_mask] = -decision
+            flags.loc[valid_mask] = preds == -1
+
+        station_result = original_station_frame[["datetime", "station_label", value_column]].copy()
+        station_result["anomaly_score"] = scores.to_numpy()
+        station_result["anomaly_flag"] = flags.to_numpy()
+        station_result["method"] = "Isolation Forest"
+        pieces.append(station_result)
+
+    result = pd.concat(pieces, ignore_index=True)
+    result[value_column] = pd.to_numeric(result[value_column], errors="coerce")
+    return result.dropna(subset=[value_column]).sort_values(["station_label", "datetime"]).reset_index(drop=True)
+
+
+def detect_stl_anomalies(
+    data: pd.DataFrame,
+    value_column: str,
+    period: int = 24,
+    threshold: float = 3.0,
+) -> pd.DataFrame:
+    frame = prepare_anomaly_dataset(data, value_column)
+    if frame.empty:
+        return frame
+
+    try:
+        from statsmodels.tsa.seasonal import STL
+    except ModuleNotFoundError:
+        frame["trend"] = np.nan
+        frame["seasonal"] = np.nan
+        frame["resid"] = np.nan
+        frame["anomaly_score"] = np.nan
+        frame["anomaly_flag"] = False
+        frame["method"] = "STL"
+        frame["status_message"] = "statsmodels is not installed. Run: pip install statsmodels"
+        return frame
+
+    pieces = []
+    for station, station_frame in frame.groupby("station_label", observed=True):
+        station_frame = station_frame.copy().sort_values("datetime")
+        indexed = station_frame.set_index("datetime")[[value_column]].resample("h").mean()
+        indexed[value_column] = indexed[value_column].interpolate(method="time").ffill().bfill()
+
+        if len(indexed) < max(period * 2, 12):
+            station_result = indexed.reset_index()
+            station_result["station_label"] = station
+            station_result["trend"] = np.nan
+            station_result["seasonal"] = np.nan
+            station_result["resid"] = np.nan
+            station_result["anomaly_score"] = np.nan
+            station_result["anomaly_flag"] = False
+            station_result["method"] = "STL"
+            pieces.append(station_result)
+            continue
+
+        seasonal_period = max(2, min(period, max(2, len(indexed) // 2)))
+        stl = STL(indexed[value_column], period=seasonal_period, robust=True)
+        result = stl.fit()
+        resid = pd.Series(result.resid, index=indexed.index)
+        median_resid = float(np.nanmedian(resid))
+        mad = float(np.nanmedian(np.abs(resid - median_resid)))
+        scale = 1.4826 * mad if mad > 0 else np.nan
+        robust_score = (resid - median_resid) / scale if pd.notna(scale) else pd.Series(np.nan, index=indexed.index)
+
+        station_result = indexed.reset_index()
+        station_result["station_label"] = station
+        station_result["trend"] = result.trend
+        station_result["seasonal"] = result.seasonal
+        station_result["resid"] = result.resid
+        station_result["anomaly_score"] = robust_score.to_numpy()
+        station_result["anomaly_flag"] = np.abs(station_result["anomaly_score"]) > threshold
+        station_result["method"] = "STL"
+        pieces.append(station_result)
+
+    return pd.concat(pieces, ignore_index=True).sort_values(["station_label", "datetime"]).reset_index(drop=True)
+
+
+def anomaly_summary_table(result_df: pd.DataFrame, value_column: str) -> pd.DataFrame:
+    if result_df.empty or "anomaly_flag" not in result_df.columns:
+        return pd.DataFrame()
+
+    summary = (
+        result_df.groupby("station_label", observed=True)
+        .agg(
+            observations=(value_column, "count"),
+            anomalies=("anomaly_flag", "sum"),
+            mean_value=(value_column, "mean"),
+            max_value=(value_column, "max"),
+        )
+        .reset_index()
+    )
+    summary["anomaly_rate_pct"] = np.where(
+        summary["observations"] > 0,
+        (summary["anomalies"] / summary["observations"]) * 100.0,
+        0.0,
+    )
+    return summary.sort_values(["anomalies", "anomaly_rate_pct"], ascending=False).reset_index(drop=True)
+
+
+def anomaly_events_table(result_df: pd.DataFrame, value_column: str, max_rows: int = 100) -> pd.DataFrame:
+    if result_df.empty or "anomaly_flag" not in result_df.columns:
+        return pd.DataFrame()
+    events = result_df[result_df["anomaly_flag"]].copy()
+    if events.empty:
+        return pd.DataFrame()
+
+    sort_col = "anomaly_score" if "anomaly_score" in events.columns else value_column
+    events = events.sort_values(sort_col, ascending=False, na_position="last")
+    keep = [c for c in ["datetime", "station_label", value_column, "anomaly_score", "trend", "seasonal", "resid"] if c in events.columns]
+    return events[keep].head(max_rows).reset_index(drop=True)
+
+
+def create_anomaly_timeseries_figure(
+    result_df: pd.DataFrame,
+    value_column: str,
+    title: str,
+    subtitle: str | None = None,
+) -> go.Figure | None:
+    if result_df.empty:
+        return None
+
+    use_webgl = prefers_webgl(len(result_df)) if "prefers_webgl" in globals() else len(result_df) > 3000
+    trace_cls = go.Scattergl if use_webgl else go.Scatter
+    fig = go.Figure()
+
+    for idx, station in enumerate(result_df["station_label"].dropna().unique()):
+        station_frame = result_df[result_df["station_label"] == station].sort_values("datetime")
+        color = APP_CONFIG["colorway"][idx % len(APP_CONFIG["colorway"])]
+        fig.add_trace(
+            trace_cls(
+                x=station_frame["datetime"],
+                y=station_frame[value_column],
+                mode="lines",
+                name=compact_station_label(station),
+                line={"width": 2, "color": color},
+            )
+        )
+        flagged = station_frame[station_frame["anomaly_flag"]] if "anomaly_flag" in station_frame.columns else station_frame.iloc[0:0]
+        if not flagged.empty:
+            fig.add_trace(
+                trace_cls(
+                    x=flagged["datetime"],
+                    y=flagged[value_column],
+                    mode="markers",
+                    name=f"{compact_station_label(station)} anomalies",
+                    marker={"size": 9, "symbol": "x", "color": "#dc2626", "line": {"width": 1}},
+                    showlegend=True,
+                )
+            )
+
+    fig = chart_template(
+        fig,
+        title,
+        axis_label(value_column),
+        "Datetime",
+        height=460,
+        subtitle=subtitle or format_window_from_data(result_df, "Detected anomalies over active filter window"),
+    )
+    fig.update_traces(hovertemplate="%{x|%Y-%m-%d %H:%M}<br>%{y:.2f}<extra>%{fullData.name}</extra>")
+    return fig
+
+
+def create_anomaly_score_figure(result_df: pd.DataFrame, title: str) -> go.Figure | None:
+    if result_df.empty or "anomaly_score" not in result_df.columns:
+        return None
+
+    plot_frame = result_df.dropna(subset=["anomaly_score"]).copy()
+    if plot_frame.empty:
+        return None
+
+    fig = px.scatter(
+        plot_frame,
+        x="datetime",
+        y="anomaly_score",
+        color="station_label",
+        hover_data={"station_label": True},
+        color_discrete_sequence=APP_CONFIG["colorway"],
+    )
+    for trace in fig.data:
+        if getattr(trace, "name", None):
+            trace.name = compact_station_label(trace.name)
+    return chart_template(
+        fig,
+        title,
+        "Anomaly score",
+        "Datetime",
+        height=420,
+        subtitle=format_window_from_data(plot_frame, "Higher magnitude indicates more unusual behavior"),
+    )
+
+
+def create_stl_components_figure(result_df: pd.DataFrame, value_column: str, station_label: str) -> go.Figure | None:
+    if result_df.empty or not {"trend", "seasonal", "resid"}.issubset(result_df.columns):
+        return None
+    station_frame = result_df[result_df["station_label"] == station_label].copy().sort_values("datetime")
+    if station_frame.empty:
+        return None
+
+    fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.05, subplot_titles=(
+        f"Observed {display_label(value_column)}", "Trend", "Seasonal", "Residual"
+    ))
+    component_specs = [
+        (value_column, "Observed"),
+        ("trend", "Trend"),
+        ("seasonal", "Seasonal"),
+        ("resid", "Residual"),
+    ]
+    for row_idx, (col, name) in enumerate(component_specs, start=1):
+        fig.add_trace(
+            go.Scatter(
+                x=station_frame["datetime"],
+                y=station_frame[col],
+                mode="lines",
+                name=name,
+                showlegend=False,
+            ),
+            row=row_idx,
+            col=1,
+        )
+    flagged = station_frame[station_frame["anomaly_flag"]] if "anomaly_flag" in station_frame.columns else station_frame.iloc[0:0]
+    if not flagged.empty:
+        fig.add_trace(
+            go.Scatter(
+                x=flagged["datetime"],
+                y=flagged[value_column],
+                mode="markers",
+                marker={"size": 8, "symbol": "x", "color": "#dc2626"},
+                name="Anomalies",
+            ),
+            row=1,
+            col=1,
+        )
+    fig.update_layout(
+        height=760,
+        template="plotly_white",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="white",
+        margin={"l": 28, "r": 24, "t": 90, "b": 40},
+        title={
+            "text": compose_title(f"STL Components - {compact_station_label(station_label)}", format_window_from_data(station_frame, None)),
+            "x": 0.02,
+            "xanchor": "left",
+        },
+    )
+    return fig
+
+
+def render_anomaly_method_tab(
+    method_name: str,
+    result_df: pd.DataFrame,
+    value_column: str,
+    description: str,
+    station_options: list[str] | None = None,
+    show_stl_components: bool = False,
+) -> None:
+    st.markdown(f'<p class="tab-note">{description}</p>', unsafe_allow_html=True)
+
+    if result_df.empty:
+        st.info("No records are available for the current filters.")
+        return
+
+    if "status_message" in result_df.columns and result_df["status_message"].dropna().nunique() > 0:
+        st.warning(result_df["status_message"].dropna().iloc[0])
+
+    summary = anomaly_summary_table(result_df, value_column)
+    events = anomaly_events_table(result_df, value_column)
+
+    top_left, top_right = st.columns([1.5, 1.0])
+    with top_left:
+        render_chart(
+            create_anomaly_timeseries_figure(result_df, value_column, f"{method_name} - {display_label(value_column)}"),
+            f"{method_name} chart is unavailable.",
+        )
+    with top_right:
+        render_chart(
+            create_anomaly_score_figure(result_df, f"{method_name} Score Profile"),
+            f"{method_name} score view is unavailable.",
+        )
+
+    metric_cols = st.columns(3)
+    anomaly_count = int(result_df["anomaly_flag"].sum()) if "anomaly_flag" in result_df.columns else 0
+    total_count = int(result_df[value_column].count()) if value_column in result_df.columns else 0
+    anomaly_rate = (anomaly_count / total_count * 100.0) if total_count else 0.0
+    metric_cols[0].metric("Anomalies flagged", f"{anomaly_count:,}")
+    metric_cols[1].metric("Observations", f"{total_count:,}")
+    metric_cols[2].metric("Flag rate", f"{anomaly_rate:.2f}%")
+
+    st.markdown("#### Summary by Station")
+    if summary.empty:
+        st.info("No anomaly summary is available.")
+    else:
+        st.dataframe(summary, use_container_width=True)
+
+    st.markdown("#### Top Flagged Events")
+    if events.empty:
+        st.info("No anomalies were flagged for the active filters.")
+    else:
+        st.dataframe(events, use_container_width=True)
+
+    if show_stl_components and station_options:
+        available_stations = [s for s in station_options if s in set(result_df["station_label"].dropna())]
+        if available_stations:
+            selected_station = st.selectbox(
+                "Inspect STL components for station",
+                options=available_stations,
+                key=f"stl_station_{value_column}",
+            )
+            render_chart(
+                create_stl_components_figure(result_df, value_column, selected_station),
+                "STL component view is unavailable for this station.",
+            )
+
 def render_dashboard(
     pollutant_df: pd.DataFrame,
     meteorology_df: pd.DataFrame,
@@ -2400,8 +2838,14 @@ def render_dashboard(
         st.warning("Select a pollutant, a meteorology variable, or both to start exploring the dashboard.")
         return
 
-    overview_tab, network_tab, map_tab, timeseries_tab, distribution_tab, relationships_tab, quality_tab, quantile_tab = st.tabs(
-        ["Overview", "Station Network", "EPA Map", "Time Series", "Distribution", "Relationships", "Data Quality", "Quantile Windows"]
+    anomaly_base_df = combined_df if mode == "combined" else primary_source
+    zscore_results = detect_rolling_zscore_anomalies(primary_source, primary_variable, window=max(rolling_window, 6), threshold=3.0) if primary_variable and not primary_source.empty else pd.DataFrame()
+    iqr_results = detect_iqr_anomalies(primary_source, primary_variable, multiplier=1.5) if primary_variable and not primary_source.empty else pd.DataFrame()
+    isolation_results = detect_isolation_forest_anomalies(anomaly_base_df, primary_variable, contamination=0.02) if primary_variable and not anomaly_base_df.empty else pd.DataFrame()
+    stl_results = detect_stl_anomalies(primary_source, primary_variable, period=24 if aggregation in {"Hourly", "Daily"} else 12, threshold=3.0) if primary_variable and not primary_source.empty else pd.DataFrame()
+
+    overview_tab, network_tab, map_tab, timeseries_tab, distribution_tab, relationships_tab, quality_tab, quantile_tab, zscore_tab, iqr_tab, isolation_tab, stl_tab = st.tabs(
+        ["Overview", "Station Network", "EPA Map", "Time Series", "Distribution", "Relationships", "Data Quality", "Quantile Windows", "Z-Score", "IQR", "Isolation Forest", "STL Decomposition"]
     )
 
     with overview_tab:
@@ -2670,6 +3114,52 @@ def render_dashboard(
             selected_stations,
             mode,
         )
+    with zscore_tab:
+        if primary_variable is None or primary_source.empty:
+            st.info("Select an active variable to run rolling Z-score detection.")
+        else:
+            render_anomaly_method_tab(
+                "Rolling Z-Score",
+                zscore_results,
+                primary_variable,
+                "Uses a rolling mean and rolling standard deviation to highlight sudden spikes and drops relative to the recent local window.",
+            )
+
+    with iqr_tab:
+        if primary_variable is None or primary_source.empty:
+            st.info("Select an active variable to run IQR-based outlier detection.")
+        else:
+            render_anomaly_method_tab(
+                "IQR Outlier Detection",
+                iqr_results,
+                primary_variable,
+                "Uses Q1 and Q3 for each station and flags values outside the classic 1.5 × IQR bounds. This is robust to skewed distributions.",
+            )
+
+    with isolation_tab:
+        if primary_variable is None or anomaly_base_df.empty:
+            st.info("Select an active variable to run Isolation Forest detection.")
+        else:
+            render_anomaly_method_tab(
+                "Isolation Forest",
+                isolation_results,
+                primary_variable,
+                "Uses an unsupervised tree-based model with time features and any available numeric covariates to isolate unusual multivariate behavior.",
+            )
+
+    with stl_tab:
+        if primary_variable is None or primary_source.empty:
+            st.info("Select an active variable to run STL decomposition.")
+        else:
+            render_anomaly_method_tab(
+                "STL Decomposition",
+                stl_results,
+                primary_variable,
+                "Decomposes the signal into trend, seasonality, and residuals, then flags unusually large residual deviations.",
+                station_options=selected_stations,
+                show_stl_components=True,
+            )
+
 
 
 def render_dependency_error() -> None:
