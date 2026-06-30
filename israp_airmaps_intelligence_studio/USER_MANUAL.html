@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ISRAP AIRMAPS Intelligence Studio — User Manual</title>
+<style>
+  :root {
+    --navy:   #0d1b2a;
+    --teal:   #0a9396;
+    --teal2:  #94d2bd;
+    --amber:  #e9c46a;
+    --red:    #e63946;
+    --white:  #ffffff;
+    --light:  #f8f9fa;
+    --border: #dee2e6;
+    --text:   #1a1a2e;
+    --muted:  #6c757d;
+    --card-shadow: 0 2px 12px rgba(0,0,0,.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+    color: var(--text); background: var(--light); line-height: 1.7;
+  }
+
+  /* ── Header ── */
+  .site-header {
+    background: var(--navy); color: var(--white);
+    padding: 48px 40px 36px; text-align: center;
+  }
+  .site-header h1 { font-size: 2.4rem; font-weight: 700; letter-spacing: -0.5px; }
+  .site-header .sub { color: var(--teal2); font-size: 1.05rem; margin-top: 6px; }
+  .site-header .badge {
+    display: inline-block; background: var(--teal); color: #fff;
+    padding: 4px 14px; border-radius: 20px; font-size: 0.8rem;
+    font-weight: 600; margin-top: 14px; letter-spacing: .5px;
+  }
+
+  /* ── Layout ── */
+  .wrapper { display: flex; max-width: 1300px; margin: 0 auto; padding: 32px 24px; gap: 32px; }
+  .toc-sidebar {
+    width: 240px; flex-shrink: 0; position: sticky; top: 24px;
+    align-self: flex-start; background: var(--white);
+    border-radius: 12px; box-shadow: var(--card-shadow);
+    padding: 20px; max-height: calc(100vh - 48px); overflow-y: auto;
+  }
+  .toc-sidebar h3 { font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--muted); margin-bottom: 12px; }
+  .toc-sidebar a {
+    display: block; padding: 5px 8px; font-size: 0.85rem; color: var(--text);
+    text-decoration: none; border-radius: 6px; transition: background .15s;
+  }
+  .toc-sidebar a:hover { background: var(--light); color: var(--teal); }
+  .toc-sidebar .toc-group { margin-top: 10px; }
+  .toc-sidebar .toc-group-label {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--muted); padding: 4px 8px; margin-top: 4px;
+  }
+  .main-content { flex: 1; min-width: 0; }
+
+  /* ── Sections ── */
+  .section { background: var(--white); border-radius: 14px;
+    box-shadow: var(--card-shadow); padding: 36px; margin-bottom: 32px; }
+  .section h2 {
+    font-size: 1.7rem; color: var(--navy); margin-bottom: 8px;
+    padding-bottom: 12px; border-bottom: 3px solid var(--teal);
+  }
+  .section h3 { font-size: 1.15rem; color: var(--teal); margin: 24px 0 10px; }
+  .section h4 { font-size: 0.95rem; font-weight: 600; color: var(--navy); margin: 16px 0 6px; }
+  .section p  { margin-bottom: 12px; }
+  .section ul, .section ol { padding-left: 22px; margin-bottom: 12px; }
+  .section li { margin-bottom: 5px; }
+
+  /* Page header strip */
+  .page-header {
+    display: flex; align-items: center; gap: 14px;
+    background: linear-gradient(135deg, var(--navy) 0%, #1a3a5c 100%);
+    color: var(--white); border-radius: 10px;
+    padding: 16px 22px; margin-bottom: 24px;
+  }
+  .page-icon { font-size: 2rem; line-height: 1; }
+  .page-header-text h2 { color: var(--white); border: none; padding: 0; margin: 0; font-size: 1.35rem; }
+  .page-header-text .page-num { font-size: 0.75rem; color: var(--teal2); letter-spacing: .8px; text-transform: uppercase; }
+
+  /* Screenshot placeholder */
+  .screenshot-placeholder {
+    background: #1e2a38; border-radius: 10px; border: 2px dashed #3a5068;
+    padding: 32px 24px; text-align: center; margin: 20px 0;
+    color: #8eafc7;
+  }
+  .screenshot-placeholder .cam { font-size: 2.5rem; display: block; margin-bottom: 10px; }
+  .screenshot-placeholder .caption { font-size: 0.88rem; max-width: 500px; margin: 0 auto; line-height: 1.5; }
+  .screenshot-placeholder .label { font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 1px; color: #5a7a99; margin-top: 8px; }
+
+  /* Callout boxes */
+  .callout {
+    border-radius: 8px; padding: 14px 18px; margin: 16px 0;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .callout-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+  .callout-body { font-size: 0.92rem; line-height: 1.6; }
+  .callout-body strong { display: block; margin-bottom: 3px; }
+  .callout.info    { background: #e8f4f8; border-left: 4px solid var(--teal); }
+  .callout.tip     { background: #fef9e7; border-left: 4px solid var(--amber); }
+  .callout.warning { background: #fdecea; border-left: 4px solid var(--red); }
+  .callout.science { background: #eaf4ec; border-left: 4px solid #2a9d8f; }
+
+  /* Feature grid */
+  .feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 14px; margin: 16px 0; }
+  .feature-card {
+    background: var(--light); border-radius: 8px; padding: 14px 16px;
+    border: 1px solid var(--border);
+  }
+  .feature-card .fc-icon { font-size: 1.4rem; margin-bottom: 6px; }
+  .feature-card h4 { font-size: 0.88rem; color: var(--navy); margin: 0 0 4px; }
+  .feature-card p  { font-size: 0.8rem; color: var(--muted); margin: 0; }
+
+  /* Steps */
+  .steps { counter-reset: step; list-style: none; padding: 0; }
+  .steps li {
+    counter-increment: step; display: flex; gap: 14px;
+    margin-bottom: 14px; align-items: flex-start;
+  }
+  .steps li::before {
+    content: counter(step); background: var(--teal); color: #fff;
+    border-radius: 50%; width: 26px; height: 26px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.78rem; font-weight: 700; margin-top: 2px;
+  }
+  .steps li .step-body { font-size: 0.92rem; line-height: 1.6; }
+
+  /* Method badge */
+  .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .mbadge {
+    background: var(--navy); color: var(--white);
+    padding: 3px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+  }
+  .mbadge.stat  { background: #2a6049; }
+  .mbadge.ml    { background: #4a2d6e; }
+  .mbadge.deep  { background: #6b2430; }
+  .mbadge.phys  { background: #1a4a6b; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.88rem; }
+  th { background: var(--navy); color: var(--white); padding: 9px 14px; text-align: left; }
+  td { border-bottom: 1px solid var(--border); padding: 8px 14px; }
+  tr:nth-child(even) td { background: var(--light); }
+
+  /* Glossary */
+  .glossary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .glossary-item { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .glossary-item:nth-child(odd) { border-right: 1px solid var(--border); }
+  .glossary-item dt { font-weight: 700; color: var(--teal); font-size: 0.88rem; }
+  .glossary-item dd { font-size: 0.84rem; color: var(--text); margin-left: 0; margin-top: 2px; }
+
+  /* Footer */
+  .site-footer {
+    background: var(--navy); color: #8eafc7;
+    text-align: center; padding: 28px 24px; font-size: 0.85rem; margin-top: 40px;
+  }
+  .site-footer strong { color: var(--teal2); }
+
+  /* Code */
+  code {
+    background: #f0f4f8; border: 1px solid var(--border);
+    padding: 1px 6px; border-radius: 4px; font-family: 'Consolas','Courier New',monospace;
+    font-size: 0.85em; color: #c7254e;
+  }
+  pre {
+    background: var(--navy); color: #a8d8ea; padding: 16px 20px;
+    border-radius: 8px; font-size: 0.85rem; overflow-x: auto;
+    font-family: 'Consolas','Courier New',monospace; margin: 12px 0;
+  }
+
+  @media (max-width: 900px) {
+    .wrapper { flex-direction: column; }
+    .toc-sidebar { width: 100%; position: static; max-height: none; }
+    .glossary-grid { grid-template-columns: 1fr; }
+    .feature-grid  { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ HEADER ═══════════════════════ -->
+<header class="site-header">
+  <h1>🌍 ISRAP AIRMAPS Intelligence Studio</h1>
+  <div class="sub">Air Quality Anomaly Detection &amp; Imputation Research Platform</div>
+  <div class="badge">User Manual — v1.0</div>
+</header>
+
+<div class="wrapper">
+
+  <!-- ═══════════════════════ SIDEBAR TOC ═══════════════════════ -->
+  <nav class="toc-sidebar">
+    <h3>Contents</h3>
+    <a href="#getting-started">Getting Started</a>
+    <a href="#navigation">Navigation &amp; UI Patterns</a>
+    <a href="#safeguards">Scientific Safeguards</a>
+
+    <div class="toc-group">
+      <div class="toc-group-label">Pages</div>
+      <a href="#p01">01 Executive Overview</a>
+      <a href="#p02">02 Data Explorer</a>
+      <a href="#p03">03 Data Quality</a>
+      <a href="#p04">04 Anomaly Lab</a>
+      <a href="#p05">05 Anomaly Comparison</a>
+      <a href="#p06">06 Imputation Lab</a>
+      <a href="#p07">07 Imputation Benchmark</a>
+      <a href="#p08">08 Final Pipeline</a>
+      <a href="#p09">09 Station 3 SO₂</a>
+      <a href="#p10">10 Method Library</a>
+      <a href="#p11">11 Experiment History</a>
+      <a href="#p12">12 Export Center</a>
+      <a href="#p13">13 Settings</a>
+    </div>
+
+    <div class="toc-group">
+      <div class="toc-group-label">Reference</div>
+      <a href="#screenshots">Taking Screenshots</a>
+      <a href="#glossary">Glossary</a>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════ MAIN CONTENT ═══════════════════════ -->
+  <main class="main-content">
+
+    <!-- ── Getting Started ── -->
+    <section class="section" id="getting-started">
+      <h2>🚀 Getting Started</h2>
+
+      <h3>What is ISRAP AIRMAPS Intelligence Studio?</h3>
+      <p>The Intelligence Studio is a research-grade local web application for exploring, auditing, and correcting EPA AQS air quality monitoring data collected across six stations in San Antonio, TX (2019–2024). It combines ERA5 reanalysis meteorology with 14 anomaly detection algorithms and 8 imputation methods in an interactive, reproducible workflow designed for NASA/ISRAP graduate research.</p>
+
+      <div class="feature-grid">
+        <div class="feature-card"><div class="fc-icon">📡</div><h4>6 AQS Stations</h4><p>Sites 32, 52, 59, 1069, 1080, 1087 — hourly CO, NO₂, O₃, PM₂.₅, SO₂</p></div>
+        <div class="feature-card"><div class="fc-icon">🔍</div><h4>14 Anomaly Methods</h4><p>From simple IQR to deep learning Anomaly Transformer and OmniAnomaly</p></div>
+        <div class="feature-card"><div class="fc-icon">🩹</div><h4>8 Imputation Methods</h4><p>Linear through ERA5 regression to BRITS, SAITS, CSDI, ImputeFormer</p></div>
+        <div class="feature-card"><div class="fc-icon">🌤️</div><h4>ERA5 Meteorology</h4><p>Temperature, humidity, wind, pressure, BLH — 52,600 hourly rows</p></div>
+        <div class="feature-card"><div class="fc-icon">📊</div><h4>13 Interactive Pages</h4><p>From executive summary to full pipeline orchestration and export</p></div>
+        <div class="feature-card"><div class="fc-icon">🔬</div><h4>Reproducible Science</h4><p>Chronological splits, seed-fixed experiments, SQLite audit trail</p></div>
+      </div>
+
+      <h3>Launching the App</h3>
+      <p>Open a terminal, navigate to the project directory, and run:</p>
+<pre>cd israp_airmaps_intelligence_studio
+python -m streamlit run app.py</pre>
+      <p>The app opens automatically at <strong>http://localhost:8501</strong>. Keep the terminal open while using the app. To stop it press <code>Ctrl+C</code>.</p>
+
+      <div class="callout info">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>First load is slow.</strong>
+          On first load the app reads all 6 station CSVs and the ERA5 file (~300 MB total) into memory. Subsequent navigation between pages is fast because data is cached with <code>@st.cache_data</code>.
+        </div>
+      </div>
+
+      <h3>Required Data Files</h3>
+      <table>
+        <tr><th>File / Directory</th><th>Contents</th><th>Required?</th></tr>
+        <tr><td><code>../Station_wise_dataset_for_EPA_AQS/*.csv</code></td><td>6 hourly station files (CO, NO₂, O₃, PM₂.₅, SO₂)</td><td>✅ Yes</td></tr>
+        <tr><td><code>../ERA5_hourly_formatted_00_23.csv</code></td><td>ERA5 reanalysis meteorology, 2019–2024</td><td>✅ Yes</td></tr>
+        <tr><td><code>experiments/experiments.db</code></td><td>SQLite experiment store (auto-created)</td><td>Auto</td></tr>
+      </table>
+    </section>
+
+    <!-- ── Navigation ── -->
+    <section class="section" id="navigation">
+      <h2>🧭 Navigation &amp; UI Patterns</h2>
+
+      <h3>Sidebar Navigation</h3>
+      <p>All 13 pages are listed in the left sidebar. Click any page name to navigate. The current page is highlighted. The sidebar can be collapsed with the <strong>×</strong> button to give charts more horizontal space.</p>
+
+      <div class="screenshot-placeholder" data-page="navigation">
+        <span class="cam">📷</span>
+        <div class="caption">Streamlit sidebar showing all 13 page links, with the current page highlighted in teal. App title "ISRAP AIRMAPS Intelligence Studio" appears at top.</div>
+        <div class="label">Screenshot: Sidebar Navigation</div>
+      </div>
+
+      <h3>The "Run" Button Pattern</h3>
+      <p>All computationally expensive operations (anomaly detection, imputation, benchmarking, pipeline) require pressing an explicit <strong>▶ Run</strong> button. Adjusting sliders or dropdowns does <em>not</em> automatically re-run analysis — this prevents accidental long computations and lets you configure all parameters before committing.</p>
+
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <div class="callout-body">
+          <strong>Results persist within a session.</strong>
+          Once you run a computation, its results are stored in Streamlit session state. You can navigate to other pages and come back — results will still be there. They reset when you refresh the browser or restart the Streamlit server.
+        </div>
+      </div>
+
+      <h3>Common Controls</h3>
+      <table>
+        <tr><th>Control</th><th>What it does</th></tr>
+        <tr><td>Station selector</td><td>Filter data to one or more of the 6 AQS monitoring sites</td></tr>
+        <tr><td>Pollutant selector</td><td>Choose CO, NO₂, O₃, PM₂.₅, or SO₂ (only actually-monitored pollutants are shown)</td></tr>
+        <tr><td>Date range picker</td><td>Restrict the time window analysed</td></tr>
+        <tr><td>Aggregation</td><td>Resample from raw hourly to daily, weekly, or monthly averages</td></tr>
+        <tr><td>📥 Download buttons</td><td>Export the current result as CSV or ZIP</td></tr>
+      </table>
+
+      <h3>Chart Interactions</h3>
+      <p>All charts are interactive Plotly figures. Hover over data points to see tooltips. Use the toolbar (top-right of each chart) to zoom, pan, select a region, or reset the view. Double-click to reset zoom. Click legend entries to show/hide individual traces.</p>
+    </section>
+
+    <!-- ── Scientific Safeguards ── -->
+    <section class="section" id="safeguards">
+      <h2>🔬 Scientific Safeguards</h2>
+      <p>The Studio enforces six non-negotiable scientific rules throughout every workflow:</p>
+
+      <ol class="steps">
+        <li><div class="step-body"><strong>Raw data is never overwritten.</strong> Source CSV files are read-only. All transformations (anomaly flags, imputed values) are stored in new columns or separate output files.</div></li>
+        <li><div class="step-body"><strong>Structurally missing channels are excluded.</strong> If a station-pollutant pair has less than 1% valid (non-NaN) observations, it is classified as "Not monitored at this station" and excluded from all anomaly detection and imputation workflows.</div></li>
+        <li><div class="step-body"><strong>Negative values are flagged, not zeroed.</strong> Physically impossible negative concentrations are preserved with their original values and marked with a separate <code>is_negative</code> flag column. Zeroing them would bias statistical analyses.</div></li>
+        <li><div class="step-body"><strong>Station 3 SO₂ is excluded by default.</strong> Site 59 exhibits ~33% negative SO₂ readings — systematic sensor corruption. The app marks this channel as corrupted and excludes it from pipeline runs. See Page 09 for full diagnostics.</div></li>
+        <li><div class="step-body"><strong>Chronological train-validation-test splits only.</strong> All ML models (LOF, Isolation Forest, BRITS, SAITS, etc.) are trained on past data and evaluated on future data. Random shuffling of time-series data is never used.</div></li>
+        <li><div class="step-body"><strong>Reproducible seeds.</strong> Every experiment stores its random seed. Results can be reproduced exactly by re-running with the same configuration from Experiment History.</div></li>
+      </ol>
+
+      <div class="callout warning">
+        <span class="callout-icon">⚠️</span>
+        <div class="callout-body">
+          <strong>Station 3 SO₂ — Do not use in final models.</strong>
+          Even if the "experimental repair" option on Page 09 produces visually plausible values, the underlying data is fundamentally compromised. Results from this channel should not be cited in publications without explicit disclosure and justification.
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════ -->
+    <!--  PAGES                                            -->
+    <!-- ══════════════════════════════════════════════════ -->
+
+    <!-- ── Page 01 ── -->
+    <section class="section" id="p01">
+      <div class="page-header">
+        <div class="page-icon">📊</div>
+        <div class="page-header-text">
+          <div class="page-num">Page 01</div>
+          <h2>Executive Overview</h2>
+        </div>
+      </div>
+
+      <p>The Executive Overview gives a bird's-eye view of the entire monitoring network. It is designed to be the first stop when opening the app — you can immediately see the health of the dataset before diving into any specific analysis.</p>
+
+      <div class="screenshot-placeholder" data-page="01_executive_overview">
+        <span class="cam">📷</span>
+        <div class="caption">Executive Overview page: six metric cards across the top row showing total records (247,884), overall completeness (72.3%), negative values count, stations (6), structurally missing pairs, and available pollutants. Below: teal/amber/red availability heatmap grid.</div>
+        <div class="label">Screenshot: Executive Overview — Metric Cards &amp; Availability Heatmap</div>
+      </div>
+
+      <h3>What You'll See</h3>
+      <ul>
+        <li><strong>6 Metric Cards</strong> — total hourly records, overall completeness %, negative value count, stations, structurally missing pairs, available pollutants</li>
+        <li><strong>Availability Heatmap</strong> — rows = stations, columns = pollutants. Green (&gt;90% complete), amber (10–90%), red (&lt;10% or structurally missing). Hover for exact percentage.</li>
+        <li><strong>Annual Completeness Bar Chart</strong> — per-station, per-year data coverage to spot systematic outages</li>
+        <li><strong>Missingness Timeline</strong> — rolling hourly gap density, revealing when instruments went offline</li>
+        <li><strong>Gap Category Stacked Bar</strong> — breakdown of very-short (1–2h), medium (3–24h), long (25–168h), and very-long (&gt;168h) gaps per station</li>
+        <li><strong>Negative Values Chart</strong> — counts by station and pollutant, highlighting Station 3 SO₂ as the dominant outlier</li>
+        <li><strong>Executive Insights Panel</strong> — auto-generated text summary: which stations have the worst coverage, which pollutants have negative-value issues, recommended first actions</li>
+        <li><strong>Station Summary Table</strong> — completeness progress bars for quick comparison, sortable</li>
+      </ul>
+
+      <div class="callout info">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>No controls needed.</strong> This page loads automatically from cached data. There are no run buttons or filters — it always reflects the full dataset.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Page 02 ── -->
+    <section class="section" id="p02">
+      <div class="page-header">
+        <div class="page-icon">🔍</div>
+        <div class="page-header-text">
+          <div class="page-num">Page 02</div>
+          <h2>Data Explorer</h2>
+        </div>
+      </div>
+
+      <p>The Data Explorer is the main interactive charting environment. Select any combination of stations, pollutants, ERA5 variables, and date ranges, then explore raw time series, meteorological context, seasonal patterns, and statistical distributions — all in one place.</p>
+
+      <div class="screenshot-placeholder" data-page="02_data_explorer">
+        <span class="cam">📷</span>
+        <div class="caption">Data Explorer page: left sidebar with station/pollutant multi-selects and date picker. Main area shows the "Raw Series" tab with a time-series line chart of NO₂ at multiple stations, a range slider at the bottom, and missing-data shading in light grey.</div>
+        <div class="label">Screenshot: Data Explorer — Raw Series Tab</div>
+      </div>
+
+      <h3>Sidebar Controls</h3>
+      <ul>
+        <li><strong>Stations</strong> — multi-select; choose one or more of the 6 sites</li>
+        <li><strong>Pollutants</strong> — multi-select; only pollutants actually monitored at the chosen stations appear</li>
+        <li><strong>ERA5 Variables</strong> — optional overlay: temperature, humidity, wind speed, BLH, pressure, precipitation</li>
+        <li><strong>Date Range</strong> — calendar picker to restrict the window (default: full 2019–2024)</li>
+        <li><strong>Aggregation</strong> — raw hourly / daily / weekly / monthly mean</li>
+      </ul>
+
+      <h3>Tabs</h3>
+      <ol class="steps">
+        <li><div class="step-body"><strong>Raw Series</strong> — line chart with missing-data grey shading. Z-score anomaly markers shown as red dots. Toggle comparison overlay to stack multiple stations. Range slider for fine zoom control. Point Inspector expander shows the value at hover position.</div></li>
+        <li><div class="step-body"><strong>ERA5 Context</strong> — dual-axis subplots pairing each pollutant with a selected meteorological variable. Pearson correlation r shown in subplot title. Helpful for hypothesis generation (e.g. high PM₂.₅ during low BLH events).</div></li>
+        <li><div class="step-body"><strong>Station Comparison</strong> — overlay all selected stations on the same axis to identify spatial gradients and correlated events.</div></li>
+        <li><div class="step-body"><strong>Seasonality</strong> — monthly and diurnal (hour-of-day) box plots revealing annual cycles and rush-hour patterns.</div></li>
+        <li><div class="step-body"><strong>Distribution</strong> — histogram with ERA5 color-binning, ECDF curve, and violin plot side by side. Useful for checking normality assumptions before applying detectors.</div></li>
+      </ol>
+
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <div class="callout-body">
+          <strong>Performance tip.</strong> When viewing more than 5,000 data points the app automatically switches to WebGL rendering (faster for large datasets). For very long date ranges, set aggregation to "Daily" to reduce rendering time.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Page 03 ── -->
+    <section class="section" id="p03">
+      <div class="page-header">
+        <div class="page-icon">🩺</div>
+        <div class="page-header-text">
+          <div class="page-num">Page 03</div>
+          <h2>Data Quality</h2>
+        </div>
+      </div>
+
+      <p>The Data Quality page provides a systematic audit of every station-pollutant pair. Use it to identify structurally missing channels, quantify negative-value contamination, and catalogue the distribution of data gaps before designing your analysis strategy.</p>
+
+      <div class="screenshot-placeholder" data-page="03_data_quality">
+        <span class="cam">📷</span>
+        <div class="caption">Data Quality page showing the Audit Table tab: a 30-row table with columns for Station, Pollutant, Valid Count, Missing %, Negative Count, Structural Missing flag, Min, Max, and Mean. Structurally missing rows highlighted in red.</div>
+        <div class="label">Screenshot: Data Quality — Audit Table</div>
+      </div>
+
+      <h3>Tabs</h3>
+      <ul>
+        <li><strong>Audit Table</strong> — 30 rows (6 stations × 5 pollutants). Columns: valid count, missing %, negative count, structural-missing flag, min, max, mean. Structurally missing pairs shown in red. Download as CSV.</li>
+        <li><strong>Negative Values</strong> — bar chart of negative-value counts and percentages by station/pollutant. Station 3 SO₂ stands out clearly with ~33% negative readings.</li>
+        <li><strong>Gap Summary</strong> — table and bar chart showing the count of gaps in each category (very_short, medium, long, very_long) per station-pollutant pair. Helps decide which imputation methods are appropriate.</li>
+        <li><strong>Availability Matrix</strong> — compact colour-coded grid (same as Executive Overview heatmap) with exact percentage labels.</li>
+        <li><strong>Downloads</strong> — download audit CSV, availability matrix CSV, gap summary CSV, and negative-values CSV.</li>
+      </ul>
+    </section>
+
+    <!-- ── Page 04 ── -->
+    <section class="section" id="p04">
+      <div class="page-header">
+        <div class="page-icon">🚨</div>
+        <div class="page-header-text">
+          <div class="page-num">Page 04</div>
+          <h2>Anomaly Lab</h2>
+        </div>
+      </div>
+
+      <p>The Anomaly Lab is where you detect anomalies in a single station-pollutant time series. Choose from 14 methods, tune parameters, press Run, then inspect flagged points individually and mark each as a True Positive, False Positive, or Uncertain before it enters the pipeline.</p>
+
+      <div class="screenshot-placeholder" data-page="04_anomaly_lab">
+        <span class="cam">📷</span>
+        <div class="caption">Anomaly Lab page: method selector dropdown showing "IQR Fence" selected. Below: parameter slider for k-factor (1.5–4.0). Large time-series chart with red diamond markers on flagged anomalies. Sidebar shows n_flagged=558, pct_flagged=1.2%, runtime=0.04s.</div>
+        <div class="label">Screenshot: Anomaly Lab — IQR detection on CO at Station 4</div>
+      </div>
+
+      <h3>Available Methods</h3>
+      <div class="badge-row">
+        <span class="mbadge stat">IQR Fence</span>
+        <span class="mbadge stat">Hampel Filter</span>
+        <span class="mbadge stat">Rolling Z-Score</span>
+        <span class="mbadge stat">STL Residual</span>
+        <span class="mbadge stat">SCREEN</span>
+        <span class="mbadge phys">Physical Constraints</span>
+        <span class="mbadge ml">LOF</span>
+        <span class="mbadge ml">Isolation Forest</span>
+        <span class="mbadge deep">LSTM NDT</span>
+        <span class="mbadge deep">Anomaly Transformer</span>
+        <span class="mbadge deep">DCdetector</span>
+        <span class="mbadge deep">OmniAnomaly</span>
+        <span class="mbadge deep">USAD</span>
+        <span class="mbadge ml">Ensemble</span>
+      </div>
+
+      <h3>How to Use</h3>
+      <ol class="steps">
+        <li><div class="step-body">Select a <strong>Station</strong> and <strong>Pollutant</strong> from the dropdowns at the top.</div></li>
+        <li><div class="step-body">Choose a <strong>Detection Method</strong>. Parameter sliders for that method appear immediately below.</div></li>
+        <li><div class="step-body">Optionally set a <strong>Date Range</strong> to focus on a specific period.</div></li>
+        <li><div class="step-body">Press <strong>▶ Run Detection</strong>. A spinner shows progress (deep learning methods may take 5–60 seconds on CPU).</div></li>
+        <li><div class="step-body">Review the flagged time series. Hover over red markers to see the timestamp and value.</div></li>
+        <li><div class="step-body">Open the <strong>Detail Drawer</strong> to inspect individual anomalies one by one.</div></li>
+        <li><div class="step-body">Use the <strong>Review Workflow</strong> buttons to mark each anomaly: ✅ True Positive / ❌ False Positive / ❓ Uncertain. Reviews are saved to the SQLite store.</div></li>
+      </ol>
+
+      <h3>Method Parameter Reference</h3>
+      <table>
+        <tr><th>Method</th><th>Key Parameters</th><th>Typical Use</th></tr>
+        <tr><td>IQR Fence</td><td>k-factor (default 1.5)</td><td>Quick first pass; catches gross outliers</td></tr>
+        <tr><td>Hampel Filter</td><td>Window (hrs), σ threshold</td><td>Spike detection in slowly-varying signals</td></tr>
+        <tr><td>Rolling Z-Score</td><td>Window (hrs), Z threshold</td><td>Drift-aware spike detection</td></tr>
+        <tr><td>STL Residual</td><td>Period, threshold type</td><td>Seasonality-aware; good for O₃ and NO₂</td></tr>
+        <tr><td>SCREEN</td><td>Max rate of change</td><td>Physically implausible jumps</td></tr>
+        <tr><td>LOF</td><td>n_neighbors, contamination</td><td>Contextual anomalies using ERA5 features</td></tr>
+        <tr><td>Isolation Forest</td><td>Contamination, n_estimators</td><td>Multivariate; uses ERA5 + lag features</td></tr>
+        <tr><td>LSTM NDT</td><td>Window, threshold, epochs</td><td>Sequential context anomalies</td></tr>
+        <tr><td>Anomaly Transformer</td><td>d_model, seq_len, threshold</td><td>Association discrepancy (deep, slow)</td></tr>
+        <tr><td>DCdetector</td><td>d_model, seq_len</td><td>Dual-channel attention (fast deep method)</td></tr>
+        <tr><td>OmniAnomaly</td><td>latent_dim, seq_len</td><td>Stochastic GRU-VAE (best for long series)</td></tr>
+      </table>
+
+      <div class="callout science">
+        <span class="callout-icon">🔬</span>
+        <div class="callout-body">
+          <strong>Deep learning methods require PyTorch.</strong>
+          If PyTorch is not installed, LSTM NDT, Anomaly Transformer, DCdetector, OmniAnomaly, and USAD will fall back to a fast approximation using rolling statistics. Install with <code>pip install torch</code> for full performance.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Page 05 ── -->
+    <section class="section" id="p05">
+      <div class="page-header">
+        <div class="page-icon">⚖️</div>
+        <div class="page-header-text">
+          <div class="page-num">Page 05</div>
+          <h2>Anomaly Comparison</h2>
+        </div>
+      </div>
+
+      <p>Run multiple detection methods simultaneously on the same data and compare their outputs systematically. The Anomaly Comparison page is designed for method selection: before committing to a single detector for the final pipeline, use this page to understand where methods agree and disagree.</p>
+
+      <div class="screenshot-placeholder" data-page="05_anomaly_comparison">
+        <span class="cam">📷</span>
+        <div class="caption">Anomaly Comparison page, "Overlap Analysis" tab: a Jaccard similarity heatmap showing pairwise agreement between 5 methods (IQR, Hampel, Rolling Z-Score, LOF, STL). High similarity shown in dark teal, low in light yellow. Methods with high Jaccard scores are highlighted.</div>
+        <div class="label">Screenshot: Anomaly Comparison — Jaccard Similarity Heatmap</div>
+      </div>
+
+      <h3>Tabs</h3>
+      <ol class="steps">
+        <li><div class="step-body"><strong>Method Summary</strong> — table of flagged counts and percentages for each method, horizontal bar chart for quick visual comparison, status badges (OK / warning / error).</div></li>
+        <li><div class="step-body"><strong>Overlap Analysis</strong> — Jaccard similarity matrix (how much do two methods agree on which points are anomalous?), co-flagging heatmap (how often are pairs of time points flagged together?).</div></li>
+        <li><div class="step-body"><strong>Timeline</strong> — raw signal plotted once, with coloured markers for each method's flags stacked below, plus an "agreement count" bar showing how many methods flagged each point simultaneously.</div></li>
+        <li><div class="step-body"><strong>Ensemble</strong> — combine all methods into a union (any method flags), majority-vote, or all-agree ensemble. Shows ensemble confidence (fraction of methods agreeing) and a confidence-coloured timeline.</div></li>
+        <li><div class="step-body"><strong>Scorecards</strong> — one card per method showing flagged count, runtime, status, and a normalised performance score relative to the other methods in the run.</div></li>
+        <li><div class="step-body"><strong>Download</strong> — download flagged-only CSV, full annotated CSV with per-method flag columns, and summary CSV.</div></li>
+      </ol>
+
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <div class="callout-body">
+          <strong>Interpreting Jaccard scores.</strong>
+          A high Jaccard score (≥0.5) between two methods means they are flagging largely the same points — you can use either interchangeably. A low score (&lt;0.2) means they are detecting different phenomena. In that case consider using an ensemble or investigating what each method is sensitive to.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Page 06 ── -->
+    <section class="section" id="p06">
+      <div class="page-header">
+        <div class="page-icon">🩹</div>
+        <div class="page-header-text">
+          <div class="page-num">Page 06</div>
+          <h2>Imputation Lab</h2>
+        </div>
+      </div>
+
+      <p>The Imputation Lab is the interactive workbench for filling data gaps. Navigate to a specific gap in the record, choose an imputation method, configure its parameters, run imputation, and visually compare the filled values against the surrounding context — all without touching the raw data.</p>
+
+      <div class="screenshot-placeholder" data-page="06_imputation_lab">
+        <span class="cam">📷</span>
+        <div class="caption">Imputation Lab showing a 48-hour gap in PM₂.₅ at Station 1. Before/after chart: original grey line with gap shown as dashed, ERA5 Ridge imputed values shown as solid blue line with light-blue confidence band. Metrics panel: MAE=1.23, RMSE=1.87, R²=0.91.</div>
+        <div class="label">Screenshot: Imputation Lab — Before/After Chart with Confidence Band</div>
+      </div>
+
+      <h3>Gap Navigator</h3>
+      <p>The Gap Navigator lists all detected gaps for the selected station-pollutant pair, sorted by length. Each entry shows: gap start, gap end, length (hours), category, and the values immediately before and after the gap. Select a gap to load it into the imputation view.</p>
+
+      <h3>Available Methods</h3>
+      <table>
+        <tr><th>Method</th><th>Best For</th><th>ERA5 Features?</th><th>PyTorch?</th></tr>
+        <tr><td>Linear</td><td>Very short gaps (1–6h)</td><td>No</td><td>No</td></tr>
+        <tr><td>ERA5 Ridge</td><td>Medium gaps with met. correlation</td><td>Yes</td><td>No</td></tr>
+        <tr><td>ERA5 Random Forest</td><td>Non-linear met. relationships</td><td>Yes</td><td>No</td></tr>
+        <tr><td>MICE</td><td>Multiple imputation uncertainty</td><td>Optional</td><td>No</td></tr>
+        <tr><td>BRITS</td><td>Bidir. LSTM; long gaps</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>SAITS</td><td>Attention-based; medium-long gaps</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>CSDI</td><td>Probabilistic; uncertainty quantification</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>ImputeFormer</td><td>Low-rank attention; fast and accurate</td><td>Yes</td><td>Yes</td></tr>
+      </table>
+
+      <div class="callout science">
+        <span class="callout-icon">🔬</span>
+        <div class="callout-body">
+          <strong>Chronological training.</strong>
+          ERA5 regression and deep learning methods are trained on data <em>before</em> the gap and evaluated on data <em>after</em> the gap. The imputed values in the gap are predictions, not interpolations. Cross-validation is always done on past folds only.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Page 07 ── -->
+    <section class="section" id="p07">
+      <div class="page-header">
+        <div class="page-icon">📏</div>
+        <div class="page-header-text">
+          <div class="page-num">Page 07</div>
+          <h2>Imputation Benchmark</h2>
+        </div>
+      </div>
+
+      <p>The Imputation Benchmark page runs controlled masking experiments to objectively compare imputation methods. Unlike the Imputation Lab (which fills real gaps), the Benchmark artificially masks known values and measures accuracy against the ground truth — giving quantitative metrics you can cite in research.</p>
+
+      <div class="screenshot-placeholder" data-page="07_imputation_benchmark">
+        <span class="cam">📷</span>
+        <div class="caption">Imputation Benchmark — Gap-Length Heatmap tab. Methods on y-axis (Linear, ERA5 Ridge, MICE, BRITS), gap lengths on x-axis (1h to 168h). Cells coloured green-to-red (lower MAE = greener). Star ★ marks best method per column. BRITS wins at 48h–168h; Linear wins at 1h–6h.</div>
+        <div class="label">Screenshot: Imputation Benchmark — Gap-Length Heatmap</div>
+      </div>
+
+      <h3>Three Tabs</h3>
+
+      <h4>📊 MCAR Leaderboard</h4>
+      <p>Randomly masks a percentage of observed values (Missing Completely At Random), runs each selected method, and ranks by MAE. Shows:</p>
+      <ul>
+        <li>Leaderboard table with MAE, RMSE, SMAPE, R², Bias, Reps (best row highlighted green)</li>
+        <li>Grouped bar chart: MAE &amp; RMSE side by side</li>
+        <li>MAE vs R² scatter plot for trade-off visualisation</li>
+      </ul>
+
+      <h4>🔥 Gap-Length Heatmap</h4>
+      <p>The most important benchmark for gap imputation research. For each combination of method and gap length [1h, 2h, 6h, 12h, 24h, 48h, 72h, 168h], masks a contiguous block of that length and measures accuracy. Shows:</p>
+      <ul>
+        <li>Annotated heatmap (★ = best method for that gap length)</li>
+        <li>Best-method-per-gap-length summary table</li>
+        <li>Degradation line chart: how each method's accuracy deteriorates as gaps grow</li>
+      </ul>
+
+      <h4>🎭 Missingness Scenarios</h4>
+      <p>Compares three realistic missingness mechanisms:</p>
+      <ul>
+        <li><strong>MCAR</strong> — uniform random masking (ideal baseline)</li>
+        <li><strong>MAR</strong> — 80% of masked values drawn from above-median readings (simulates sensor dropout during pollution episodes)</li>
+        <li><strong>MNAR</strong> — 80% from above-90th-percentile readings (sensor saturation causing data loss during peak events — hardest to impute)</li>
+      </ul>
+
+      <div class="callout warning">
+        <span class="callout-icon">⚠️</span>
+        <div class="callout-body">
+          <strong>Benchmark runtimes.</strong>
+          The Gap-Length Heatmap runs up to (n_methods × 8 gap lengths × n_trials) computations. With 4 methods and 3 trials per cell that is 96 imputation runs. Expect 2–10 minutes for deep learning methods. Select only the methods you need and keep trials at 2–3 for exploratory runs.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Page 08 ── -->
+    <section class="section" id="p08">
+      <div class="page-header">
+        <div class="page-icon">⚙️</div>
+        <div class="page-header-text">
+          <div class="page-num">Page 08</div>
+          <h2>Final Pipeline</h2>
+        </div>
+      </div>
+
+      <p>The Final Pipeline orchestrates all stages end-to-end in a single run. Configure your station selection, anomaly method, ensemble threshold, and imputation method, then execute the full 9-stage workflow and download all outputs as a single ZIP file.</p>
+
+      <div class="screenshot-placeholder" data-page="08_final_pipeline">
+        <span class="cam">📷</span>
+        <div class="caption">Final Pipeline page: top section shows a horizontal flow diagram with 9 boxes (Load → Audit → Gap Analysis → Anomaly Detection → Ensemble → Review Filter → Imputation → Export → Report) connected by arrows. Each box colour-coded by status (green=done, grey=pending, amber=running).</div>
+        <div class="label">Screenshot: Final Pipeline — Flow Diagram and Stage Cards</div>
+      </div>
+
+      <h3>Pipeline Stages</h3>
+      <table>
+        <tr><th>#</th><th>Stage</th><th>What it does</th></tr>
+        <tr><td>1</td><td>Load</td><td>Read selected station CSVs and ERA5 file</td></tr>
+        <tr><td>2</td><td>Audit</td><td>Compute completeness, negatives, structural flags for each station-pollutant pair</td></tr>
+        <tr><td>3</td><td>Gap Analysis</td><td>Detect and classify all data gaps (very_short / medium / long / very_long)</td></tr>
+        <tr><td>4</td><td>Anomaly Detection</td><td>Run the selected anomaly method on all non-structural station-pollutant pairs</td></tr>
+        <tr><td>5</td><td>Ensemble</td><td>Apply majority-vote or union ensemble if multiple methods were run</td></tr>
+        <tr><td>6</td><td>Review Filter</td><td>Exclude anomalies that were manually marked as False Positives in the Anomaly Lab</td></tr>
+        <tr><td>7</td><td>Imputation</td><td>Fill detected gaps using the selected imputation method; flag anomalies for exclusion</td></tr>
+        <tr><td>8</td><td>Export</td><td>Write per-station CSVs with anomaly flags and imputed values to the exports/ directory</td></tr>
+        <tr><td>9</td><td>Report</td><td>Generate Markdown and HTML audit reports summarising the full pipeline run</td></tr>
+      </table>
+
+      <h3>How to Run</h3>
+      <ol class="steps">
+        <li><div class="step-body">In the <strong>Configuration Panel</strong>, select which stations to process and which anomaly + imputation methods to use.</div></li>
+        <li><div class="step-body">Check the <strong>Pre-run Summary</strong> — it shows how many station-pollutant pairs will be processed and estimated runtime.</div></li>
+        <li><div class="step-body">Press <strong>▶ Run Pipeline</strong>. A live progress bar updates as each stage completes.</div></li>
+        <li><div class="step-body">Review <strong>Stage Result Cards</strong> — green = success, amber = warning (partial results), red = error.</div></li>
+        <li><div class="step-body">Use the <strong>Download ZIP</strong> button to get all output CSVs and the pipeline manifest JSON.</div></li>
+      </ol>
+    </section>
+
+    <!-- ── Page 09 ── -->
+    <section class="section" id="p09">
+      <div class="page-header">
+        <div class="page-icon">⚗️</div>
+        <div class="page-header-text">
+          <div class="page-num">Page 09</div>
+          <h2>Station 3 SO₂ Investigation</h2>
+        </div>
+      </div>
+
+      <p>Station 3 (Site 59) exhibits a systematic SO₂ sensor malfunction characterised by ~33% negative readings. This page provides full forensic diagnostics and is intended to document the corrupted channel — not to fix it for production use.</p>
+
+      <div class="screenshot-placeholder" data-page="09_station3_so2">
+        <span class="cam">📷</span>
+        <div class="caption">Station 3 SO₂ Investigation page: top row shows three stat cards — Total observed: 48,870; Negative values: 16,416; Negative fraction: 33.6%. Below: full time series with negative values highlighted in red, showing they occur throughout the entire record with no clear seasonal pattern.</div>
+        <div class="label">Screenshot: Station 3 SO₂ — Evidence Cards &amp; Time Series</div>
+      </div>
+
+      <div class="callout warning">
+        <span class="callout-icon">🚨</span>
+        <div class="callout-body">
+          <strong>Default: Station 3 SO₂ is excluded from all pipeline runs.</strong>
+          This channel is disabled in <code>src/config.py</code> via <code>EXCLUDED_BY_DEFAULT = {("station3", "SO2")}</code>. The Final Pipeline, Anomaly Lab, and Imputation Lab will not process it unless you explicitly override this setting in Page 13 Settings.
+        </div>
+      </div>
+
+      <h3>What This Page Shows</h3>
+      <ul>
+        <li><strong>Evidence Cards</strong> — observed count, negative count, negative fraction (33.6%)</li>
+        <li><strong>Full Time Series</strong> — raw SO₂ values 2019–2024 with negative readings in red; no seasonal pattern to the negatives, confirming systematic rather than episodic failure</li>
+        <li><strong>Monthly Negative Rate Chart</strong> — rate per month showing the fault persists across all years</li>
+        <li><strong>Distribution Histogram</strong> — bimodal distribution with a mass below zero (physically impossible)</li>
+        <li><strong>Comparison to Nearby Sites</strong> — SO₂ at other stations for context</li>
+        <li><strong>Experimental Repair Section</strong> — clip-and-rescale or regression-based repair options. Use with extreme caution and explicit disclosure in any publication.</li>
+      </ul>
+    </section>
+
+    <!-- ── Page 10 ── -->
+    <section class="section" id="p10">
+      <div class="page-header">
+        <div class="page-icon">📚</div>
+        <div class="page-header-text">
+          <div class="page-num">Page 10</div>
+          <h2>Method Library</h2>
+        </div>
+      </div>
+
+      <p>The Method Library is a searchable reference catalog of all anomaly detection and imputation methods implemented in the Studio. Each entry includes a description, key parameters, complexity, typical use cases, and known limitations — useful for selecting the right tool for a given data characteristic.</p>
+
+      <div class="screenshot-placeholder" data-page="10_method_library">
+        <span class="cam">📷</span>
+        <div class="caption">Method Library page showing the anomaly detection catalog. Card layout: each method has a coloured header (Statistical=blue, ML=purple, Deep Learning=dark red, Physical=navy), description paragraph, parameters list, and a "Best for" badge row.</div>
+        <div class="label">Screenshot: Method Library — Anomaly Detection Catalog</div>
+      </div>
+
+      <h3>Recommendation Wizard</h3>
+      <p>At the bottom of the page, the <strong>Recommendation Wizard</strong> asks a series of questions about your data:</p>
+      <ul>
+        <li>Primary gap category (very short / medium / long / very long)</li>
+        <li>Do you have ERA5 meteorology available?</li>
+        <li>Is PyTorch installed?</li>
+        <li>Time budget (fast &lt;1 min / medium 1–10 min / slow &gt;10 min OK)</li>
+        <li>Priority: precision (few false positives) vs. recall (catch all anomalies)</li>
+      </ul>
+      <p>Based on your answers it ranks the applicable methods and provides a ranked recommendation with justification.</p>
+    </section>
+
+    <!-- ── Page 11 ── -->
+    <section class="section" id="p11">
+      <div class="page-header">
+        <div class="page-icon">🗂️</div>
+        <div class="page-header-text">
+          <div class="page-num">Page 11</div>
+          <h2>Experiment History</h2>
+        </div>
+      </div>
+
+      <p>Every anomaly detection and imputation run is automatically saved to a local SQLite database. The Experiment History page lets you browse, filter, compare, annotate, and export your complete analysis audit trail — making your research fully reproducible.</p>
+
+      <div class="screenshot-placeholder" data-page="11_experiment_history">
+        <span class="cam">📷</span>
+        <div class="caption">Experiment History page, Experiment List tab: a filterable table with columns for ID, Timestamp, Type (Anomaly/Imputation), Station, Pollutant, Method, n_flagged/n_imputed, Status, and Notes. Filter dropdowns above the table for Type, Station, and Method.</div>
+        <div class="label">Screenshot: Experiment History — Experiment List with Filters</div>
+      </div>
+
+      <h3>Tabs</h3>
+      <ul>
+        <li><strong>Experiment List</strong> — complete history table with filters for type, station, method, and date range. Download as CSV.</li>
+        <li><strong>Analytics</strong> — bar chart of experiments by method, pie chart by type, timeline of experiment counts, chart of flagged % per experiment over time.</li>
+        <li><strong>Compare</strong> — select any two experiments for side-by-side comparison of parameters and metrics. Useful for tuning.</li>
+        <li><strong>Manage</strong> — add or edit notes on any experiment, delete individual runs, bulk export selected experiments to CSV or JSON.</li>
+      </ul>
+
+      <div class="callout info">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>Reproducibility.</strong>
+          Each experiment record stores the full configuration including random seed. To reproduce an exact result, open the experiment's detail view, copy its configuration, paste it into the appropriate Lab page, and press Run.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Page 12 ── -->
+    <section class="section" id="p12">
+      <div class="page-header">
+        <div class="page-icon">📦</div>
+        <div class="page-header-text">
+          <div class="page-num">Page 12</div>
+          <h2>Export Center</h2>
+        </div>
+      </div>
+
+      <p>The Export Center consolidates all downloadable outputs in one place — from individual station CSVs to full audit reports and pipeline output ZIPs. Use it as the final step before handing off data to a collaborator or moving outputs to a downstream analysis tool.</p>
+
+      <div class="screenshot-placeholder" data-page="12_export_center">
+        <span class="cam">📷</span>
+        <div class="caption">Export Center page, Station Data tab: per-station download cards with options to include ERA5 columns, structural-missing flags, and anomaly flags. Each card shows a preview of the first 5 rows and a download button.</div>
+        <div class="label">Screenshot: Export Center — Station Data Downloads</div>
+      </div>
+
+      <h3>Tabs</h3>
+      <ul>
+        <li><strong>Station Data</strong> — download any station's data enriched with ERA5 columns, structural flags, negative-value flags, and anomaly flag columns from the latest detection run. Also a "Combined Dataset" builder that merges all stations into one wide CSV.</li>
+        <li><strong>Audit &amp; Quality</strong> — download audit CSV, availability matrix, gap summary, negative-values summary, and the full experiment store export.</li>
+        <li><strong>Reports</strong> — generate a Markdown or self-contained HTML report summarising the dataset audit, gap analysis, and Station 3 SO₂ warning. The HTML report is styled and ready to share.</li>
+        <li><strong>Pipeline Outputs</strong> — browse pipeline runs by ID. Download per-run ZIPs containing per-station CSVs, the gap CSV, and the pipeline manifest JSON.</li>
+        <li><strong>Download All</strong> — choose which output categories to include and download everything as a single ZIP.</li>
+      </ul>
+    </section>
+
+    <!-- ── Page 13 ── -->
+    <section class="section" id="p13">
+      <div class="page-header">
+        <div class="page-icon">⚙️</div>
+        <div class="page-header-text">
+          <div class="page-num">Page 13</div>
+          <h2>Settings</h2>
+        </div>
+      </div>
+
+      <p>Settings lets you customise default parameter values, manage file paths, check dependency status, and save/load named configurations — without editing any Python files.</p>
+
+      <div class="screenshot-placeholder" data-page="13_settings">
+        <span class="cam">📷</span>
+        <div class="caption">Settings page, Dependency Status tab: two-column table listing Required packages (streamlit, pandas, plotly, numpy, scipy, scikit-learn) all showing ✅ and version numbers, and Optional packages (torch, pypots) showing ⚠️ Not installed with install command hint.</div>
+        <div class="label">Screenshot: Settings — Dependency Status</div>
+      </div>
+
+      <h3>Tabs</h3>
+      <ul>
+        <li><strong>Anomaly Defaults</strong> — sliders for default IQR k-factor, Hampel window, rolling Z window and threshold, STL period, Isolation Forest contamination, SCREEN rate limit. Changes apply to all future runs in this session.</li>
+        <li><strong>Imputation Defaults</strong> — Linear max_gap, ERA5 model type, MICE iterations, BRITS/SAITS/CSDI/ImputeFormer training epochs and sequence length.</li>
+        <li><strong>Display &amp; Performance</strong> — chart point-count downsample threshold, max rows shown in data tables, clear Streamlit cache button.</li>
+        <li><strong>Paths &amp; Data</strong> — shows the resolved paths for the station directory and ERA5 file, with an existence check. Lists all detected station CSV files.</li>
+        <li><strong>Dependency Status</strong> — checks all required and optional Python packages, shows installed version vs. required version, provides install commands for missing packages.</li>
+        <li><strong>Saved Configurations</strong> — save the current parameter set as a named JSON config, load a previously saved config, export/import configs as JSON files, reset all settings to defaults.</li>
+      </ul>
+    </section>
+
+    <!-- ── Screenshots ── -->
+    <section class="section" id="screenshots">
+      <h2>📸 Adding Real Screenshots</h2>
+      <p>This manual was generated with placeholder screenshot boxes. To replace them with real screenshots of the running app, install <code>playwright</code> and run the provided capture script:</p>
+
+<pre>pip install playwright
+playwright install chromium
+
+# Make sure the app is running on port 8501, then:
+python capture_screenshots.py</pre>
+
+      <p>The script navigates to each of the 13 pages, waits for Streamlit to render, captures a full-page screenshot, and automatically patches the screenshot placeholders in this HTML file with the real images.</p>
+
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <div class="callout-body">
+          <strong>Manual screenshot option.</strong>
+          On Windows you can take screenshots with <kbd>Win + Shift + S</kbd> (Snip &amp; Sketch) or press <kbd>PrtSc</kbd>. Save them as <code>screenshots/01_executive_overview.png</code>, <code>02_data_explorer.png</code>, etc. and the patch script will embed them automatically.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Glossary ── -->
+    <section class="section" id="glossary">
+      <h2>📖 Glossary</h2>
+      <dl class="glossary-grid">
+        <div class="glossary-item">
+          <dt>AQS</dt>
+          <dd>Air Quality System — EPA's national ambient air quality monitoring network</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>ERA5</dt>
+          <dd>ECMWF Reanalysis v5 — global hourly atmospheric reanalysis dataset used here as meteorological context</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>MCAR</dt>
+          <dd>Missing Completely At Random — data is missing independently of observed or unobserved values (easiest to impute)</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>MAR</dt>
+          <dd>Missing At Random — probability of missingness depends on observed values (e.g. sensor drops out more at high concentrations)</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>MNAR</dt>
+          <dd>Missing Not At Random — missingness depends on the unobserved value itself (hardest to impute without external information)</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>Structural Missingness</dt>
+          <dd>A station-pollutant pair with &lt;1% valid observations — the instrument was never deployed or permanently failed</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>IQR</dt>
+          <dd>Interquartile Range — Q3 − Q1. Used in the IQR Fence detector: flag values outside [Q1 − k·IQR, Q3 + k·IQR]</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>STL</dt>
+          <dd>Seasonal and Trend decomposition using Loess — separates a time series into trend, seasonal, and residual components</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>LOF</dt>
+          <dd>Local Outlier Factor — compares the local density of a point to its neighbours; density-based anomaly detection</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>SCREEN</dt>
+          <dd>Rate-of-change detector — flags consecutive hourly observations that change faster than a physically plausible speed limit</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>BRITS</dt>
+          <dd>Bidirectional Recurrent Imputation for Time Series — bidirectional LSTM with decay weighting for missing data (Cao et al. 2018)</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>SAITS</dt>
+          <dd>Self-Attention-based Imputation for Time Series — transformer-style attention imputer (Du et al. 2023)</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>CSDI</dt>
+          <dd>Conditional Score-based Diffusion model for Imputation — denoising diffusion probabilistic model adapted for time series gaps (Tashiro et al. 2021)</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>ImputeFormer</dt>
+          <dd>Low-rank attention transformer for time series imputation — efficient attention via low-rank factorisation</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>MICE</dt>
+          <dd>Multiple Imputation by Chained Equations — iteratively imputes each variable conditioned on all others; produces multiple plausible imputed datasets</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>BLH</dt>
+          <dd>Boundary Layer Height — the ERA5 variable measuring the depth of the turbulent mixing layer; low BLH traps pollutants near the surface</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>Gap Category</dt>
+          <dd>very_short (1–2h), medium (3–24h), long (25–168h), very_long (&gt;168h) — used to select appropriate imputation methods</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>Jaccard Similarity</dt>
+          <dd>|A ∩ B| / |A ∪ B| — fraction of time points where two methods agree. Used in the Anomaly Comparison overlap analysis.</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>MAE</dt>
+          <dd>Mean Absolute Error — average |predicted − true| over all imputed points</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>SMAPE</dt>
+          <dd>Symmetric Mean Absolute Percentage Error — scale-free error metric: 100 · mean(|p−t| / ((|p|+|t|)/2))</dd>
+        </div>
+        <div class="glossary-item">
+          <dt>RMSE</dt>
+          <dd>Root Mean Squared Error — √(mean((predicted − true)²)); penalises large errors more than MAE</dd>
+        </div>
+      </dl>
+    </section>
+
+  </main>
+</div>
+
+<!-- ═══════════════════════ FOOTER ═══════════════════════ -->
+<footer class="site-footer">
+  <strong>ISRAP AIRMAPS Intelligence Studio</strong> — User Manual v1.0<br>
+  NASA/ISRAP Graduate Research · San Antonio, TX Air Quality · EPA AQS + ERA5<br>
+  <span style="font-size:0.78rem;margin-top:6px;display:block;color:#5a7a99;">
+    Generated 2026-06-29 · Run the app: <code style="color:#94d2bd;background:transparent;border:none;">python -m streamlit run app.py</code>
+  </span>
+</footer>
+
+</body>
+</html>
