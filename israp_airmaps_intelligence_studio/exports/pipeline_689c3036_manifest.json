@@ -1,0 +1,24 @@
+{
+  "pipeline_id": "689c3036",
+  "config": {
+    "pipeline_id": "689c3036",
+    "station_keys": [
+      "station1",
+      "station4"
+    ],
+    "anomaly_methods": [
+      "Physical Constraints",
+      "IQR Fence"
+    ],
+    "imputation_strategy": "Linear only",
+    "exclude_station3_so2": true,
+    "exec_mode": "Fast",
+    "random_seed": 42
+  },
+  "outputs": [
+    "C:\\Users\\abhip\\Abhishek_Masters\\NEW_RESEARCH_NASA(ISRAP)\\israp_airmaps_intelligence_studio\\exports\\pipeline_689c3036_station1.csv",
+    "C:\\Users\\abhip\\Abhishek_Masters\\NEW_RESEARCH_NASA(ISRAP)\\israp_airmaps_intelligence_studio\\exports\\pipeline_689c3036_station4.csv"
+  ],
+  "total_anomalies": 7362,
+  "total_imputed": 18400
+}
